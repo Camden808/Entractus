@@ -1,0 +1,13 @@
+# Normalize line endings to LF for all text files. Keeps Prettier's
+# `endOfLine: "lf"` rule honored across Windows/macOS/Linux checkouts.
+* text=auto eol=lf
+
+# Binary types — never touch these.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.docx binary
+*.zip binary

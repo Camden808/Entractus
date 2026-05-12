@@ -17,7 +17,8 @@ See [`Requirements.md`](./Requirements.md) for the full product spec and [`Tasks
 .
 ├── apps/
 │   ├── web/   # Vite + React frontend
-│   └── api/   # Express backend (Prisma added in task 1.3)
+│   └── api/   # Express backend + Prisma ORM
+├── docker-compose.yml  # Local Postgres
 ├── Requirements.md
 ├── Tasks.md
 └── README.md  (this file)
@@ -41,7 +42,13 @@ npm install
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
 
-# 3. Run web and api in two terminals
+# 3. Start local Postgres in Docker
+npm run db:up
+
+# 4. Apply Prisma migrations (creates the database schema)
+npm run db:migrate
+
+# 5. Run web and api in two terminals
 npm run dev:api      # http://localhost:3001
 npm run dev:web      # http://localhost:5173
 ```
@@ -53,6 +60,27 @@ curl http://localhost:3001/healthz
 # {"status":"ok"}
 ```
 
+## Database
+
+Postgres runs in Docker via `docker-compose.yml`. The `apps/api/.env.example` `DATABASE_URL` matches the compose file's credentials, so the default config "just works" once `npm run db:up` is running.
+
+| Script               | What it does                                                             |
+| -------------------- | ------------------------------------------------------------------------ |
+| `npm run db:up`      | Start the local Postgres container (detached, with healthcheck)          |
+| `npm run db:down`    | Stop the Postgres container (data is preserved in the named volume)      |
+| `npm run db:migrate` | Apply pending Prisma migrations and regenerate the client (dev workflow) |
+| `npm run db:studio`  | Open Prisma Studio in the browser to inspect data                        |
+
+To wipe local data and start fresh:
+
+```bash
+docker compose down -v   # stops the container AND removes its named volume
+npm run db:up
+npm run db:migrate
+```
+
+Prisma's schema lives at [`apps/api/prisma/schema.prisma`](apps/api/prisma/schema.prisma). Models are added incrementally as backend tasks land.
+
 ## Available scripts (root)
 
 | Script                 | What it does                                      |
@@ -61,6 +89,10 @@ curl http://localhost:3001/healthz
 | `npm run dev:api`      | Start the Express dev server for `apps/api` (tsx) |
 | `npm run build:web`    | Type-check and build the web app                  |
 | `npm run build:api`    | Compile the API to `apps/api/dist`                |
+| `npm run db:up`        | Start local Postgres in Docker                    |
+| `npm run db:down`      | Stop local Postgres                               |
+| `npm run db:migrate`   | Apply Prisma migrations against local Postgres    |
+| `npm run db:studio`    | Open Prisma Studio                                |
 | `npm run lint`         | Run ESLint across both workspaces                 |
 | `npm run typecheck`    | Run `tsc --noEmit` across both workspaces         |
 | `npm run format`       | Format the repo with Prettier                     |
