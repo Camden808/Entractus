@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: entractus-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: entractus
+      POSTGRES_PASSWORD: entractus
+      POSTGRES_DB: entractus
+    ports:
+      - '5432:5432'
+    volumes:
+      - entractus_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U entractus -d entractus']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  entractus_pgdata:

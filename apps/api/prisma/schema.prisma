@@ -1,0 +1,11 @@
+// Prisma schema for the Entractus API.
+// Models are added incrementally — see Tasks.md §2.1 for the first batch.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
