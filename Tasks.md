@@ -7,7 +7,7 @@ Tasks are grouped into phases and ordered roughly by dependency. Each item is si
 ## 1. Project Setup
 
 - [x] **Initialize repo structure** — Create a monorepo (`apps/web` for React+Vite+TS+Tailwind, `apps/api` for Node+Express+TS) or two sibling repos. Pick whichever you'll deploy more easily.
-- [ ] **Configure shared tooling** — ESLint, Prettier, TypeScript strict mode, `.env.example`, `.gitignore`, and a top-level README describing how to run web + api locally.
+- [x] **Configure shared tooling** — ESLint, Prettier, TypeScript strict mode, `.env.example`, `.gitignore`, and a top-level README describing how to run web + api locally.
 - [ ] **Set up local Postgres + Prisma** — Add a `docker-compose.yml` for local Postgres. Run `prisma init` in `apps/api`, point `DATABASE_URL` at the local DB, verify `prisma migrate dev` works on an empty schema.
 
 ## 2. Database & Prisma Schema
