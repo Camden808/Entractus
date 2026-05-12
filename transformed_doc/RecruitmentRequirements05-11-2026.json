@@ -1,0 +1,80 @@
+[
+  {
+    "sid": "/overview",
+    "title": "Overview",
+    "level": 1,
+    "children": []
+  },
+  {
+    "sid": "/tech-stack",
+    "title": "Tech Stack",
+    "level": 1,
+    "children": []
+  },
+  {
+    "sid": "/users",
+    "title": "Users",
+    "level": 1,
+    "children": []
+  },
+  {
+    "sid": "/company-information",
+    "title": "Company Information",
+    "level": 1,
+    "children": []
+  },
+  {
+    "sid": "/industry",
+    "title": "Industry",
+    "level": 1,
+    "children": []
+  },
+  {
+    "sid": "/authentication",
+    "title": "Authentication",
+    "level": 1,
+    "children": []
+  },
+  {
+    "sid": "/screens",
+    "title": "Screens",
+    "level": 1,
+    "children": [
+      {
+        "sid": "/main",
+        "title": "Main",
+        "level": 2,
+        "parent": "/screens",
+        "children": []
+      },
+      {
+        "sid": "/employers-page",
+        "title": "Employers Page",
+        "level": 2,
+        "parent": "/screens",
+        "children": []
+      },
+      {
+        "sid": "/contact-page",
+        "title": "Contact Page",
+        "level": 2,
+        "parent": "/screens",
+        "children": []
+      },
+      {
+        "sid": "/job-openings",
+        "title": "Job Openings",
+        "level": 2,
+        "parent": "/screens",
+        "children": []
+      },
+      {
+        "sid": "/api-endpoints",
+        "title": "API Endpoints",
+        "level": 2,
+        "parent": "/screens",
+        "children": []
+      }
+    ]
+  }
+]

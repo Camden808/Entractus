@@ -1,0 +1,15 @@
+{
+  "name": "entractus-recruitment",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Entractus Recruitment website monorepo (web + api).",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:web": "npm --workspace apps/web run dev",
+    "dev:api": "npm --workspace apps/api run dev",
+    "build:web": "npm --workspace apps/web run build",
+    "build:api": "npm --workspace apps/api run build"
+  }
+}
