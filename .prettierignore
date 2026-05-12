@@ -1,0 +1,20 @@
+node_modules
+dist
+build
+coverage
+.turbo
+.next
+.vite
+*.tsbuildinfo
+
+# Generated
+apps/api/prisma/migrations
+apps/api/uploads
+
+# Docs that mirror external formatting
+*.docx
+transformed_doc/
+
+# Authored spec & plan documents — keep as-written
+Requirements.md
+Tasks.md
