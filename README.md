@@ -48,7 +48,10 @@ npm run db:up
 # 4. Apply Prisma migrations (creates the database schema)
 npm run db:migrate
 
-# 5. Run web and api in two terminals
+# 5. Seed dev data (admin user + sample industries & job postings)
+npm run db:seed
+
+# 6. Run web and api in two terminals
 npm run dev:api      # http://localhost:3001
 npm run dev:web      # http://localhost:5173
 ```
@@ -69,7 +72,10 @@ Postgres runs in Docker via `docker-compose.yml`. The `apps/api/.env.example` `D
 | `npm run db:up`      | Start the local Postgres container (detached, with healthcheck)          |
 | `npm run db:down`    | Stop the Postgres container (data is preserved in the named volume)      |
 | `npm run db:migrate` | Apply pending Prisma migrations and regenerate the client (dev workflow) |
+| `npm run db:seed`    | Seed system-default industries, an admin user, and sample job postings   |
 | `npm run db:studio`  | Open Prisma Studio in the browser to inspect data                        |
+
+The seed is idempotent — system-default industries and admin-owned job postings are wiped and re-inserted on each run; the admin user is upserted by email. Default admin login: `admin@entractus.local` / `changeme-in-prod` (change before any non-local use).
 
 To wipe local data and start fresh:
 
@@ -77,6 +83,7 @@ To wipe local data and start fresh:
 docker compose down -v   # stops the container AND removes its named volume
 npm run db:up
 npm run db:migrate
+npm run db:seed
 ```
 
 Prisma's schema lives at [`apps/api/prisma/schema.prisma`](apps/api/prisma/schema.prisma). Models are added incrementally as backend tasks land.
@@ -92,6 +99,7 @@ Prisma's schema lives at [`apps/api/prisma/schema.prisma`](apps/api/prisma/schem
 | `npm run db:up`        | Start local Postgres in Docker                    |
 | `npm run db:down`      | Stop local Postgres                               |
 | `npm run db:migrate`   | Apply Prisma migrations against local Postgres    |
+| `npm run db:seed`      | Seed initial industries, admin user, sample jobs  |
 | `npm run db:studio`    | Open Prisma Studio                                |
 | `npm run lint`         | Run ESLint across both workspaces                 |
 | `npm run typecheck`    | Run `tsc --noEmit` across both workspaces         |
