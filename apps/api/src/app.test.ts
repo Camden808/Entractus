@@ -1,11 +1,26 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from './app.js';
+
+// app.ts now mounts the auth router which imports the Prisma client.
+// Stub the client at module-load time so the suite never touches a DB.
+vi.mock('./db.js', () => ({
+  prisma: { user: { findUnique: vi.fn(), create: vi.fn() } },
+}));
 
 const WEB_ORIGIN = 'http://localhost:5173';
 
 function makeApp() {
-  return createApp({ webOrigin: WEB_ORIGIN });
+  return createApp({
+    webOrigin: WEB_ORIGIN,
+    auth: {
+      jwtAccessSecret: 'test-access-secret',
+      jwtRefreshSecret: 'test-refresh-secret',
+      accessTokenTtlSeconds: 15 * 60,
+      refreshTokenTtlSeconds: 7 * 24 * 60 * 60,
+      isProduction: false,
+    },
+  });
 }
 
 describe('GET /healthz', () => {

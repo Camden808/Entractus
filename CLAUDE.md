@@ -103,3 +103,29 @@ When completing tasks from `Tasks.md`:
    - A summary of changes made
    - Any testing notes or considerations
 4. Update the task checkbox in `Tasks.md` to mark it complete.
+
+## Testing Requirements
+
+Before marking any task as complete:
+
+1. Write unit tests for the new functionality.
+2. Run the full test suite with `npm run test`.
+3. If tests fail:
+   - Analyze the failure output.
+   - Fix the code (not the tests, unless the tests are incorrect).
+   - Re-run tests until all pass.
+4. For API endpoints, include integration tests that verify:
+   - Success responses with valid input
+   - Authentication requirements
+   - Edge cases (validation errors, conflicts, missing fields)
+
+## Test Commands
+
+The repo uses npm workspaces with Vitest in both apps. See "Common commands" above for the full table; the most useful test-specific recipes:
+
+- Run all tests: `npm run test`
+- Backend (api) tests only: `npm run test:api`
+- Frontend (web) tests only: `npm run test:web`
+- Specific test file: `npm --workspace apps/api exec -- vitest run src/routes/auth.test.ts`
+- Filter by test name: `npm --workspace apps/api exec -- vitest run -t "returns 400"`
+- Watch mode (per workspace): `npm --workspace apps/api run test:watch`
