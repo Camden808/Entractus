@@ -109,6 +109,21 @@ Each app has its own `.env.example`. Copy it to `.env` and fill in real values.
 
 `.env` files are gitignored. Never commit real secrets.
 
+## Testing
+
+Both workspaces use **[Vitest](https://vitest.dev)** as the test runner. The API uses **supertest** for in-process integration tests against the Express app; the web uses **React Testing Library** + jsdom for component tests.
+
+| Script                  | What it does                                                 |
+| ----------------------- | ------------------------------------------------------------ |
+| `npm run test`          | Run all tests in both workspaces (one-shot, CI-friendly)     |
+| `npm run test:api`      | Run only the API test suite                                  |
+| `npm run test:web`      | Run only the web test suite                                  |
+| `npm run test:coverage` | Run with v8 coverage; output goes to `apps/<name>/coverage/` |
+
+Within a workspace, `npm run test:watch` keeps Vitest open in watch mode.
+
+Tests live alongside the source they cover (e.g. `apps/api/src/app.test.ts`, `apps/web/src/App.test.tsx`). Database-backed integration tests will land alongside Prisma models (§2.1 onward).
+
 ## Code style
 
 - **TypeScript strict mode** is on in both apps (`strict`, `noUncheckedIndexedAccess`).

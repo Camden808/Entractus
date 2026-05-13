@@ -21,6 +21,10 @@
     "typecheck": "npm --workspaces --if-present run typecheck",
     "typecheck:web": "npm --workspace apps/web run typecheck",
     "typecheck:api": "npm --workspace apps/api run typecheck",
+    "test": "npm --workspaces --if-present run test",
+    "test:web": "npm --workspace apps/web run test",
+    "test:api": "npm --workspace apps/api run test",
+    "test:coverage": "npm --workspaces --if-present run test:coverage",
     "format": "prettier --write \".\"",
     "format:check": "prettier --check \".\""
   },
