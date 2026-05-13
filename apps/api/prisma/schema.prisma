@@ -1,5 +1,6 @@
 // Prisma schema for the Entractus API.
-// Models are added incrementally — see Tasks.md §2.1 for the first batch.
+// Field names use camelCase in Prisma; @map keeps DB columns snake_case
+// to match the naming used in Requirements.md and Tasks.md.
 
 generator client {
   provider = "prisma-client-js"
@@ -8,4 +9,83 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  user
+  admin
+
+  @@map("user_role")
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  company      String?
+  passwordHash String   @map("password_hash")
+  displayName  String?  @map("display_name")
+  timezone     String   @default("UTC")
+  role         UserRole @default(user)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  industries  Industry[]
+  jobPostings JobPosting[]
+
+  @@map("users")
+}
+
+model EmployerRequest {
+  id                 String   @id @default(uuid()) @db.Uuid
+  firstName          String   @map("first_name")
+  lastName           String   @map("last_name")
+  company            String
+  addressLine1       String   @map("address_line_1")
+  addressLine2       String?  @map("address_line_2")
+  city               String?
+  state              String?
+  phone              String
+  email              String
+  positionName       String?  @map("position_name")
+  positionTitle      String?  @map("position_title")
+  positionType       String?  @map("position_type")
+  hours              String?
+  duties             String?
+  referralSource     String?  @map("referral_source")
+  questions          String?
+  jobDescriptionPath String?  @map("job_description_path")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@map("employer_requests")
+}
+
+model Industry {
+  id     String  @id @default(uuid()) @db.Uuid
+  userId String? @map("user_id") @db.Uuid
+  name   String
+  client Boolean @default(false)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("industries")
+}
+
+model JobPosting {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String
+  state       String
+  city        String
+  type        String
+  company     String
+  postedDate  DateTime @default(now()) @map("posted_date")
+  description String
+  createdById String   @map("created_by") @db.Uuid
+
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([state])
+  @@index([city])
+  @@index([type])
+  @@index([company])
+  @@map("job_postings")
 }
