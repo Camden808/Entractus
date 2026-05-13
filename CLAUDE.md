@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Entractus Recruitment is a recruitment-services website for the Construction & Engineering industry. The source of truth for *what* to build is [`Requirements.md`](./Requirements.md) (product spec — screens, data models, API endpoints). The source of truth for *what to build next* is [`Tasks.md`](./Tasks.md) — 28 checkboxes across 11 phases, ordered by dependency. Read both before starting non-trivial work.
+Entractus Recruitment is a recruitment-services website for the Construction & Engineering industry. The source of truth for _what_ to build is [`Requirements.md`](./Requirements.md) (product spec — screens, data models, API endpoints). The source of truth for _what to build next_ is [`Tasks.md`](./Tasks.md) — 28 checkboxes across 11 phases, ordered by dependency. Read both before starting non-trivial work.
 
 ## Repo layout
 
@@ -17,7 +17,7 @@ npm workspaces monorepo. `npm install` at the root installs everything.
 
 ## Workflow
 
-Work moves through `Tasks.md` one item at a time. **Every task gets its own branch and pull request** — never commit directly to `master`. The naming convention is `task/<n>-<slug>` (e.g. `task/1.3-postgres-prisma`). Land via `gh pr merge <N> --squash --delete-branch` and re-branch off updated `master`.
+Work moves through `Tasks.md` one item at a time. **Every task gets its own branch and pull request** — never commit directly to `master`. See the [Git Workflow](#git-workflow) section below for branch naming and commit conventions. Land via `gh pr merge <N> --squash --delete-branch` and re-branch off updated `master`.
 
 When a task lands, tick its checkbox in `Tasks.md` as part of the same PR.
 
@@ -25,19 +25,19 @@ When a task lands, tick its checkbox in `Tasks.md` as part of the same PR.
 
 Run from the repo root unless noted otherwise.
 
-| Command | Purpose |
-| --- | --- |
-| `npm run dev:api` | Express dev server (tsx watch) — http://localhost:3001 |
-| `npm run dev:web` | Vite dev server — http://localhost:5173 |
-| `npm run db:up` / `npm run db:down` | Start / stop the local Postgres container |
-| `npm run db:migrate` | Apply Prisma migrations (dev workflow) |
-| `npm run db:studio` | Prisma Studio in the browser |
-| `npm run test` | Vitest run in both workspaces (5 api + 4 web today) |
-| `npm run test:api` / `npm run test:web` | Single-workspace test run |
-| `npm run test:coverage` | v8 coverage in both workspaces |
-| `npm run typecheck` | `tsc --noEmit` in both workspaces |
-| `npm run lint` | ESLint across both workspaces |
-| `npm run format` / `npm run format:check` | Prettier write / verify |
+| Command                                   | Purpose                                                |
+| ----------------------------------------- | ------------------------------------------------------ |
+| `npm run dev:api`                         | Express dev server (tsx watch) — http://localhost:3001 |
+| `npm run dev:web`                         | Vite dev server — http://localhost:5173                |
+| `npm run db:up` / `npm run db:down`       | Start / stop the local Postgres container              |
+| `npm run db:migrate`                      | Apply Prisma migrations (dev workflow)                 |
+| `npm run db:studio`                       | Prisma Studio in the browser                           |
+| `npm run test`                            | Vitest run in both workspaces (5 api + 4 web today)    |
+| `npm run test:api` / `npm run test:web`   | Single-workspace test run                              |
+| `npm run test:coverage`                   | v8 coverage in both workspaces                         |
+| `npm run typecheck`                       | `tsc --noEmit` in both workspaces                      |
+| `npm run lint`                            | ESLint across both workspaces                          |
+| `npm run format` / `npm run format:check` | Prettier write / verify                                |
 
 ### Running a single test or test name
 
@@ -61,7 +61,7 @@ npm run db:migrate
 
 ## Architecture decisions worth knowing
 
-**API app factory.** `apps/api/src/index.ts` is *only* an entrypoint — it reads env and calls `app.listen`. The actual Express wiring lives in [`apps/api/src/app.ts`](apps/api/src/app.ts) and is exported as `createApp({ webOrigin })`. Tests import the factory and use supertest in-process; nothing binds a port. Keep this split when adding routes — put middleware/routes in `app.ts`, never in `index.ts`.
+**API app factory.** `apps/api/src/index.ts` is _only_ an entrypoint — it reads env and calls `app.listen`. The actual Express wiring lives in [`apps/api/src/app.ts`](apps/api/src/app.ts) and is exported as `createApp({ webOrigin })`. Tests import the factory and use supertest in-process; nothing binds a port. Keep this split when adding routes — put middleware/routes in `app.ts`, never in `index.ts`.
 
 **Vitest pool on web is `threads`, not `forks`.** Vitest v4 defaults to `forks`, but on Windows the project path "Entractus Recruitment" (with a space) causes the forks worker URL to URL-encode incorrectly and time out. `apps/web/vitest.config.ts` explicitly sets `pool: 'threads'`. Don't change this without testing on Windows.
 
@@ -87,3 +87,19 @@ npm run db:migrate
 - When a script fits a category, prefer adding it to the root `package.json` as a forwarder (`npm --workspace apps/<x> run <script>`) so the root surface stays self-documenting.
 - New API tests use supertest against `createApp(...)`. New web tests use RTL with the setup in `apps/web/src/test/setup.ts` (jest-dom matchers + RTL cleanup are already wired).
 - `Tasks.md` and `Requirements.md` are authored documents — don't reformat them with Prettier (they're in `.prettierignore`).
+
+## Git Workflow
+
+When completing tasks from `Tasks.md`:
+
+1. Create a new branch named `feature/<task-number>-<brief-description>` before starting work.
+2. Make atomic commits with conventional commit messages:
+   - `feat:` for new features
+   - `fix:` for bug fixes
+   - `docs:` for documentation
+   - `refactor:` for refactoring
+3. After completing a task, create a pull request with:
+   - A descriptive title matching the task
+   - A summary of changes made
+   - Any testing notes or considerations
+4. Update the task checkbox in `Tasks.md` to mark it complete.
