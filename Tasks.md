@@ -13,7 +13,7 @@ Tasks are grouped into phases and ordered roughly by dependency. Each item is si
 ## 2. Database & Prisma Schema
 
 - [x] **Define Prisma models** — Translate Requirements.md into models: `User` (id, email unique, company, password_hash, display_name, timezone, role, created_at), `EmployerRequest` (the Company Information form fields + uploaded job description file path), `Industry` (id, user_id nullable, client boolean), `JobPosting` (id, title, state, city, type, company, posted_date, description, created_by). Run initial migration.
-- [ ] **Seed script** — Create `prisma/seed.ts` that seeds a few system-default `Industry` rows, one admin `User`, and ~5 sample `JobPosting` rows so the frontend has data to render.
+- [x] **Seed script** — Create `prisma/seed.ts` that seeds a few system-default `Industry` rows, one admin `User`, and ~5 sample `JobPosting` rows so the frontend has data to render.
 
 ## 3. Backend — Authentication
 
