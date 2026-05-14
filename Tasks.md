@@ -23,7 +23,7 @@ Tasks are grouped into phases and ordered roughly by dependency. Each item is si
 
 ## 4. Backend — Users & Employer Requests
 
-- [ ] **User account endpoints** — Implement `GET /api/users/me`, `PATCH /api/users/me` (update display_name, timezone), `DELETE /api/users/me` (cascade-delete user's owned data). All behind a JWT auth middleware.
+- [x] **User account endpoints** — Implement `GET /api/users/me`, `PATCH /api/users/me` (update display_name, timezone), `DELETE /api/users/me` (cascade-delete user's owned data). All behind a JWT auth middleware.
 - [ ] **Employer request endpoints** — Implement `POST /api/employer/request` (public; validates and stores the contact form payload, accepts optional file upload via Multer to local disk or S3) and `POST /api/employer/signup` (converts an employer request into a `User` account).
 
 ## 5. Backend — Job Postings
