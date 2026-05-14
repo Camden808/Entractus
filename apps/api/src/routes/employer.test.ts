@@ -24,6 +24,7 @@ vi.mock('../db.js', () => ({
       findUnique: (...args: unknown[]) => requestFindUniqueMock(...args),
       create: (...args: unknown[]) => requestCreateMock(...args),
     },
+    jobPosting: { findMany: vi.fn(), count: vi.fn() },
     $transaction: vi.fn(),
   },
 }));

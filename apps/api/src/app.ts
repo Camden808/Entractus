@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import { createAuthRouter, type AuthRouterOptions } from './routes/auth.js';
 import { createUsersRouter } from './routes/users.js';
 import { createEmployerRouter, type EmployerRouterOptions } from './routes/employer.js';
+import { createJobsRouter } from './routes/jobs.js';
 
 export interface AppOptions {
   webOrigin: string;
@@ -25,6 +26,7 @@ export function createApp({ webOrigin, auth, employer }: AppOptions): Express {
   app.use('/api/auth', createAuthRouter(auth));
   app.use('/api/users', createUsersRouter({ jwtAccessSecret: auth.jwtAccessSecret }));
   app.use('/api/employer', createEmployerRouter(employer));
+  app.use('/api/jobs', createJobsRouter());
 
   return app;
 }
