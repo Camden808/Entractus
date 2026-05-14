@@ -11,13 +11,18 @@ import {
   JsonWebTokenError,
   TokenExpiredError,
 } from '../auth/jwt.js';
+import { generateResetToken, hashResetToken } from '../auth/tokens.js';
+import type { Mailer } from '../mail/mailer.js';
 
 export interface AuthRouterOptions {
   jwtAccessSecret: string;
   jwtRefreshSecret: string;
   accessTokenTtlSeconds: number;
   refreshTokenTtlSeconds: number;
+  passwordResetTtlSeconds: number;
   isProduction: boolean;
+  mailer: Mailer;
+  webBaseUrl: string;
 }
 
 // bcrypt silently truncates at 72 bytes; cap min length at 8 (common floor).
@@ -43,6 +48,19 @@ const loginSchema = z.object({
     .max(254)
     .transform((s) => s.toLowerCase()),
   password: z.string().min(1).max(72),
+});
+
+const forgotPasswordSchema = z.object({
+  email: z
+    .string()
+    .email()
+    .max(254)
+    .transform((s) => s.toLowerCase()),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1).max(200),
+  password: z.string().min(8).max(72),
 });
 
 function issueSession(
@@ -267,6 +285,85 @@ export function createAuthRouter(opts: AuthRouterOptions): Router {
     }
 
     return res.status(204).send();
+  });
+
+  router.post('/forgot-password', async (req, res) => {
+    const parsed = forgotPasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'invalid_request',
+        issues: parsed.error.issues,
+      });
+    }
+
+    const { email } = parsed.data;
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true },
+    });
+
+    // Only act when the user exists, but always return the same 202 so the
+    // endpoint doesn't leak whether an email is registered.
+    if (user) {
+      const rawToken = generateResetToken();
+      const tokenHash = hashResetToken(rawToken);
+      const expiresAt = new Date(Date.now() + opts.passwordResetTtlSeconds * 1000);
+
+      await prisma.passwordResetToken.create({
+        data: { tokenHash, userId: user.id, expiresAt },
+      });
+
+      const resetUrl = `${opts.webBaseUrl}/reset-password?token=${encodeURIComponent(rawToken)}`;
+      await opts.mailer.sendPasswordReset({
+        to: user.email,
+        resetUrl,
+        ttlMinutes: Math.round(opts.passwordResetTtlSeconds / 60),
+      });
+    }
+
+    return res.status(202).json({ status: 'accepted' });
+  });
+
+  router.post('/reset-password', async (req, res) => {
+    const parsed = resetPasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'invalid_request',
+        issues: parsed.error.issues,
+      });
+    }
+
+    const { token, password } = parsed.data;
+    const tokenHash = hashResetToken(token);
+
+    const record = await prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+    });
+
+    // Single bucket of "the token isn't usable" — covers unknown, used,
+    // and expired alike so we don't leak which case it was.
+    if (!record || record.usedAt !== null || record.expiresAt < new Date()) {
+      return res.status(400).json({ error: 'invalid_or_expired_token' });
+    }
+
+    const passwordHash = await hashPassword(password);
+
+    // Atomically: rotate the password hash AND burn the token. If either
+    // half fails the other is rolled back, so a token can't be marked used
+    // without the password actually changing.
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: record.userId },
+        data: { passwordHash },
+      }),
+      prisma.passwordResetToken.update({
+        where: { id: record.id },
+        data: { usedAt: new Date() },
+      }),
+    ]);
+
+    return res.json({ status: 'ok' });
   });
 
   return router;

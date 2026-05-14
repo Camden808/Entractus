@@ -32,6 +32,7 @@ model User {
   industries           Industry[]
   jobPostings          JobPosting[]
   revokedRefreshTokens RevokedRefreshToken[]
+  passwordResetTokens  PasswordResetToken[]
 
   @@map("users")
 }
@@ -69,6 +70,23 @@ model Industry {
   user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("industries")
+}
+
+// Single-use password reset tokens. We store the SHA-256 hash of the
+// raw token (which is what's emailed to the user); the raw token never
+// touches the DB. usedAt being non-null prevents replay.
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  userId    String    @map("user_id") @db.Uuid
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }
 
 // Refresh-token revocation list. Any jti added here is rejected by

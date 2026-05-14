@@ -6,8 +6,10 @@ import { createApp } from './app.js';
 // Stub the client at module-load time so the suite never touches a DB.
 vi.mock('./db.js', () => ({
   prisma: {
-    user: { findUnique: vi.fn(), create: vi.fn() },
+    user: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     revokedRefreshToken: { findUnique: vi.fn(), create: vi.fn() },
+    passwordResetToken: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -21,7 +23,10 @@ function makeApp() {
       jwtRefreshSecret: 'test-refresh-secret',
       accessTokenTtlSeconds: 15 * 60,
       refreshTokenTtlSeconds: 7 * 24 * 60 * 60,
+      passwordResetTtlSeconds: 60 * 60,
       isProduction: false,
+      mailer: { sendPasswordReset: vi.fn() },
+      webBaseUrl: WEB_ORIGIN,
     },
   });
 }

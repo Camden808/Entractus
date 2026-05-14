@@ -8,28 +8,45 @@ import { createApp } from '../app.js';
 
 const findUniqueMock = vi.fn();
 const createMock = vi.fn();
+const userUpdateMock = vi.fn();
 const revokedFindUniqueMock = vi.fn();
 const revokedCreateMock = vi.fn();
+const resetFindUniqueMock = vi.fn();
+const resetCreateMock = vi.fn();
+const resetUpdateMock = vi.fn();
+const transactionMock = vi.fn();
 
 vi.mock('../db.js', () => ({
   prisma: {
     user: {
       findUnique: (...args: unknown[]) => findUniqueMock(...args),
       create: (...args: unknown[]) => createMock(...args),
+      update: (...args: unknown[]) => userUpdateMock(...args),
     },
     revokedRefreshToken: {
       findUnique: (...args: unknown[]) => revokedFindUniqueMock(...args),
       create: (...args: unknown[]) => revokedCreateMock(...args),
     },
+    passwordResetToken: {
+      findUnique: (...args: unknown[]) => resetFindUniqueMock(...args),
+      create: (...args: unknown[]) => resetCreateMock(...args),
+      update: (...args: unknown[]) => resetUpdateMock(...args),
+    },
+    $transaction: (...args: unknown[]) => transactionMock(...args),
   },
 }));
+
+const sendPasswordResetMock = vi.fn();
 
 const TEST_AUTH = {
   jwtAccessSecret: 'test-access-secret',
   jwtRefreshSecret: 'test-refresh-secret',
   accessTokenTtlSeconds: 15 * 60,
   refreshTokenTtlSeconds: 7 * 24 * 60 * 60,
+  passwordResetTtlSeconds: 60 * 60,
   isProduction: false,
+  mailer: { sendPasswordReset: sendPasswordResetMock },
+  webBaseUrl: 'http://localhost:5173',
 };
 
 function makeApp() {
@@ -533,3 +550,194 @@ describe('POST /api/auth/logout', () => {
 function randomJti(): string {
   return crypto.randomUUID();
 }
+
+// --- Password reset ---
+
+function sha256Hex(s: string): string {
+  return crypto.createHash('sha256').update(s, 'utf8').digest('hex');
+}
+
+describe('POST /api/auth/forgot-password', () => {
+  beforeEach(() => {
+    findUniqueMock.mockReset();
+    resetCreateMock.mockReset();
+    sendPasswordResetMock.mockReset();
+  });
+
+  it('returns 202 and sends an email when the user exists', async () => {
+    findUniqueMock.mockResolvedValue({ id: FAKE_USER.id, email: FAKE_USER.email });
+    resetCreateMock.mockResolvedValue({});
+    sendPasswordResetMock.mockResolvedValue(undefined);
+
+    const res = await request(makeApp())
+      .post('/api/auth/forgot-password')
+      .send({ email: 'jane@example.com' });
+
+    expect(res.status).toBe(202);
+    expect(res.body).toEqual({ status: 'accepted' });
+
+    // Token row created with a hash (not the raw token) and an expiry in
+    // the future.
+    expect(resetCreateMock).toHaveBeenCalledTimes(1);
+    const [createArg] = resetCreateMock.mock.calls[0] as unknown as [
+      { data: { tokenHash: string; userId: string; expiresAt: Date } },
+    ];
+    expect(createArg.data.tokenHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(createArg.data.userId).toBe(FAKE_USER.id);
+    expect(createArg.data.expiresAt.getTime()).toBeGreaterThan(Date.now());
+
+    // Mailer called with the user's email and a reset URL that contains
+    // a raw token whose sha256 matches the row's tokenHash.
+    expect(sendPasswordResetMock).toHaveBeenCalledTimes(1);
+    const [sendArg] = sendPasswordResetMock.mock.calls[0] as unknown as [
+      { to: string; resetUrl: string; ttlMinutes: number },
+    ];
+    expect(sendArg.to).toBe(FAKE_USER.email);
+    expect(sendArg.resetUrl).toContain(`${TEST_AUTH.webBaseUrl}/reset-password?token=`);
+    expect(sendArg.ttlMinutes).toBe(60);
+    const rawToken = decodeURIComponent(sendArg.resetUrl.split('?token=')[1] ?? '');
+    expect(rawToken.length).toBeGreaterThan(10);
+    expect(sha256Hex(rawToken)).toBe(createArg.data.tokenHash);
+  });
+
+  it('returns 202 (same shape) when the email is unknown — no DB write, no email', async () => {
+    findUniqueMock.mockResolvedValue(null);
+
+    const res = await request(makeApp())
+      .post('/api/auth/forgot-password')
+      .send({ email: 'ghost@example.com' });
+
+    expect(res.status).toBe(202);
+    expect(res.body).toEqual({ status: 'accepted' });
+    expect(resetCreateMock).not.toHaveBeenCalled();
+    expect(sendPasswordResetMock).not.toHaveBeenCalled();
+  });
+
+  it('lowercases the email before lookup', async () => {
+    findUniqueMock.mockResolvedValue(null);
+
+    await request(makeApp()).post('/api/auth/forgot-password').send({ email: 'JANE@Example.COM' });
+
+    expect(findUniqueMock).toHaveBeenCalledWith({
+      where: { email: 'jane@example.com' },
+      select: { id: true, email: true },
+    });
+  });
+
+  it.each([
+    { case: 'invalid email', body: { email: 'not-an-email' } },
+    { case: 'missing email', body: {} },
+  ])('returns 400 with Zod issues for $case', async ({ body }) => {
+    const res = await request(makeApp()).post('/api/auth/forgot-password').send(body);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('invalid_request');
+    expect(findUniqueMock).not.toHaveBeenCalled();
+    expect(sendPasswordResetMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/auth/reset-password', () => {
+  const RAW_TOKEN = 'a-very-random-reset-token-value-for-tests';
+  const TOKEN_HASH = sha256Hex(RAW_TOKEN);
+
+  beforeEach(() => {
+    resetFindUniqueMock.mockReset();
+    transactionMock.mockReset();
+  });
+
+  it('hashes the new password, burns the token in a transaction, returns 200', async () => {
+    const record = {
+      id: '22222222-2222-2222-2222-222222222222',
+      tokenHash: TOKEN_HASH,
+      userId: FAKE_USER.id,
+      expiresAt: new Date(Date.now() + 600_000),
+      usedAt: null,
+      createdAt: new Date(),
+    };
+    resetFindUniqueMock.mockResolvedValue(record);
+    transactionMock.mockResolvedValue([null, null]);
+
+    const res = await request(makeApp())
+      .post('/api/auth/reset-password')
+      .send({ token: RAW_TOKEN, password: 'new-correct-horse' });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ status: 'ok' });
+
+    expect(resetFindUniqueMock).toHaveBeenCalledWith({ where: { tokenHash: TOKEN_HASH } });
+
+    // Transaction received two PrismaPromise-shaped ops; we can't deeply
+    // inspect them because they're lazy Prisma proxies, but we can confirm
+    // the call shape and arity.
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+    const [ops] = transactionMock.mock.calls[0] as unknown as [unknown[]];
+    expect(Array.isArray(ops)).toBe(true);
+    expect(ops).toHaveLength(2);
+  });
+
+  it('returns 400 invalid_or_expired_token when the token is unknown', async () => {
+    resetFindUniqueMock.mockResolvedValue(null);
+
+    const res = await request(makeApp())
+      .post('/api/auth/reset-password')
+      .send({ token: RAW_TOKEN, password: 'new-correct-horse' });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'invalid_or_expired_token' });
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 invalid_or_expired_token when the token is already used', async () => {
+    resetFindUniqueMock.mockResolvedValue({
+      id: '22222222-2222-2222-2222-222222222222',
+      tokenHash: TOKEN_HASH,
+      userId: FAKE_USER.id,
+      expiresAt: new Date(Date.now() + 600_000),
+      usedAt: new Date(),
+      createdAt: new Date(),
+    });
+
+    const res = await request(makeApp())
+      .post('/api/auth/reset-password')
+      .send({ token: RAW_TOKEN, password: 'new-correct-horse' });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'invalid_or_expired_token' });
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 invalid_or_expired_token when the token is expired', async () => {
+    resetFindUniqueMock.mockResolvedValue({
+      id: '22222222-2222-2222-2222-222222222222',
+      tokenHash: TOKEN_HASH,
+      userId: FAKE_USER.id,
+      expiresAt: new Date(Date.now() - 1000),
+      usedAt: null,
+      createdAt: new Date(),
+    });
+
+    const res = await request(makeApp())
+      .post('/api/auth/reset-password')
+      .send({ token: RAW_TOKEN, password: 'new-correct-horse' });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'invalid_or_expired_token' });
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { case: 'missing token', body: { password: 'new-correct-horse' } },
+    { case: 'missing password', body: { token: RAW_TOKEN } },
+    { case: 'short password', body: { token: RAW_TOKEN, password: 'short' } },
+    {
+      case: 'oversize password',
+      body: { token: RAW_TOKEN, password: 'a'.repeat(73) },
+    },
+  ])('returns 400 with Zod issues for $case', async ({ body }) => {
+    const res = await request(makeApp()).post('/api/auth/reset-password').send(body);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('invalid_request');
+    expect(resetFindUniqueMock).not.toHaveBeenCalled();
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+});
