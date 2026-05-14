@@ -33,6 +33,7 @@ vi.mock('../db.js', () => ({
       update: (...args: unknown[]) => resetUpdateMock(...args),
     },
     employerRequest: { findUnique: vi.fn(), create: vi.fn() },
+    jobPosting: { findMany: vi.fn(), count: vi.fn() },
     $transaction: (...args: unknown[]) => transactionMock(...args),
   },
 }));

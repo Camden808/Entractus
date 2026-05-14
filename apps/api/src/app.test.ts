@@ -10,6 +10,7 @@ vi.mock('./db.js', () => ({
     revokedRefreshToken: { findUnique: vi.fn(), create: vi.fn() },
     passwordResetToken: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     employerRequest: { findUnique: vi.fn(), create: vi.fn() },
+    jobPosting: { findMany: vi.fn(), count: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
