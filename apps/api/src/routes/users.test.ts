@@ -17,6 +17,7 @@ vi.mock('../db.js', () => ({
     },
     revokedRefreshToken: { findUnique: vi.fn(), create: vi.fn() },
     passwordResetToken: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+    employerRequest: { findUnique: vi.fn(), create: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -36,6 +37,14 @@ function makeApp() {
   return createApp({
     webOrigin: 'http://localhost:5173',
     auth: TEST_AUTH,
+    employer: {
+      jwtAccessSecret: TEST_AUTH.jwtAccessSecret,
+      jwtRefreshSecret: TEST_AUTH.jwtRefreshSecret,
+      accessTokenTtlSeconds: TEST_AUTH.accessTokenTtlSeconds,
+      refreshTokenTtlSeconds: TEST_AUTH.refreshTokenTtlSeconds,
+      isProduction: false,
+      uploadDir: './test-uploads',
+    },
   });
 }
 

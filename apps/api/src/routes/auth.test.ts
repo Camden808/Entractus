@@ -32,6 +32,7 @@ vi.mock('../db.js', () => ({
       create: (...args: unknown[]) => resetCreateMock(...args),
       update: (...args: unknown[]) => resetUpdateMock(...args),
     },
+    employerRequest: { findUnique: vi.fn(), create: vi.fn() },
     $transaction: (...args: unknown[]) => transactionMock(...args),
   },
 }));
@@ -53,6 +54,14 @@ function makeApp() {
   return createApp({
     webOrigin: 'http://localhost:5173',
     auth: TEST_AUTH,
+    employer: {
+      jwtAccessSecret: TEST_AUTH.jwtAccessSecret,
+      jwtRefreshSecret: TEST_AUTH.jwtRefreshSecret,
+      accessTokenTtlSeconds: TEST_AUTH.accessTokenTtlSeconds,
+      refreshTokenTtlSeconds: TEST_AUTH.refreshTokenTtlSeconds,
+      isProduction: false,
+      uploadDir: './test-uploads',
+    },
   });
 }
 

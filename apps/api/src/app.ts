@@ -3,13 +3,15 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { createAuthRouter, type AuthRouterOptions } from './routes/auth.js';
 import { createUsersRouter } from './routes/users.js';
+import { createEmployerRouter, type EmployerRouterOptions } from './routes/employer.js';
 
 export interface AppOptions {
   webOrigin: string;
   auth: AuthRouterOptions;
+  employer: EmployerRouterOptions;
 }
 
-export function createApp({ webOrigin, auth }: AppOptions): Express {
+export function createApp({ webOrigin, auth, employer }: AppOptions): Express {
   const app = express();
 
   app.use(cors({ origin: webOrigin, credentials: true }));
@@ -22,6 +24,7 @@ export function createApp({ webOrigin, auth }: AppOptions): Express {
 
   app.use('/api/auth', createAuthRouter(auth));
   app.use('/api/users', createUsersRouter({ jwtAccessSecret: auth.jwtAccessSecret }));
+  app.use('/api/employer', createEmployerRouter(employer));
 
   return app;
 }
