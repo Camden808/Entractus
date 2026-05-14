@@ -4,7 +4,13 @@ import { randomUUID } from 'node:crypto';
 import { Prisma, type UserRole } from '@prisma/client';
 import { prisma } from '../db.js';
 import { hashPassword, verifyPassword } from '../auth/passwords.js';
-import { signAccessToken, signRefreshToken } from '../auth/jwt.js';
+import {
+  signAccessToken,
+  signRefreshToken,
+  verifyRefreshToken,
+  JsonWebTokenError,
+  TokenExpiredError,
+} from '../auth/jwt.js';
 
 export interface AuthRouterOptions {
   jwtAccessSecret: string;
@@ -64,6 +70,15 @@ function issueSession(
   });
 
   return accessToken;
+}
+
+function clearRefreshCookie(res: Response, opts: AuthRouterOptions): void {
+  res.clearCookie('refresh_token', {
+    httpOnly: true,
+    secure: opts.isProduction,
+    sameSite: 'lax',
+    path: '/api/auth',
+  });
 }
 
 export function createAuthRouter(opts: AuthRouterOptions): Router {
@@ -161,6 +176,97 @@ export function createAuthRouter(opts: AuthRouterOptions): Router {
     const { passwordHash: _passwordHash, ...userPublic } = user;
     const accessToken = issueSession(res, user, opts);
     return res.json({ user: userPublic, accessToken });
+  });
+
+  router.post('/refresh', async (req, res) => {
+    const cookieToken = req.cookies?.refresh_token as string | undefined;
+    if (!cookieToken) {
+      return res.status(401).json({ error: 'no_refresh_token' });
+    }
+
+    // 1. Verify the JWT (signature + expiry + payload shape).
+    let payload;
+    try {
+      payload = verifyRefreshToken(cookieToken, opts.jwtRefreshSecret);
+    } catch (err) {
+      if (err instanceof TokenExpiredError) {
+        clearRefreshCookie(res, opts);
+        return res.status(401).json({ error: 'refresh_token_expired' });
+      }
+      if (err instanceof JsonWebTokenError) {
+        clearRefreshCookie(res, opts);
+        return res.status(401).json({ error: 'invalid_refresh_token' });
+      }
+      throw err;
+    }
+
+    // 2. Reject if this jti has been revoked.
+    const revoked = await prisma.revokedRefreshToken.findUnique({
+      where: { jti: payload.jti },
+    });
+    if (revoked) {
+      clearRefreshCookie(res, opts);
+      return res.status(401).json({ error: 'refresh_token_revoked' });
+    }
+
+    // 3. Look up the user — they may have been deleted since the token was issued.
+    const user = await prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, role: true },
+    });
+    if (!user) {
+      clearRefreshCookie(res, opts);
+      return res.status(401).json({ error: 'invalid_refresh_token' });
+    }
+
+    // 4. Revoke the old jti (rotation), then issue a fresh session.
+    await prisma.revokedRefreshToken.create({
+      data: {
+        jti: payload.jti,
+        userId: user.id,
+        expiresAt: new Date(payload.exp * 1000),
+      },
+    });
+
+    const accessToken = issueSession(res, user, opts);
+    return res.json({ accessToken });
+  });
+
+  router.post('/logout', async (req, res) => {
+    const cookieToken = req.cookies?.refresh_token as string | undefined;
+
+    // Always clear the cookie + return 204. Logout is idempotent: a stale or
+    // tampered cookie is still "logged out" from the client's perspective.
+    clearRefreshCookie(res, opts);
+
+    if (cookieToken) {
+      try {
+        const payload = verifyRefreshToken(cookieToken, opts.jwtRefreshSecret);
+        // Best-effort revoke. If the jti is already in the table (logout twice,
+        // or this races refresh), Prisma raises P2002 and we swallow it.
+        try {
+          await prisma.revokedRefreshToken.create({
+            data: {
+              jti: payload.jti,
+              userId: payload.sub,
+              expiresAt: new Date(payload.exp * 1000),
+            },
+          });
+        } catch (err) {
+          if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== 'P2002') {
+            throw err;
+          }
+        }
+      } catch (err) {
+        // Expired or malformed token — nothing useful to revoke. The cookie
+        // is already cleared, so the client is effectively logged out.
+        if (!(err instanceof JsonWebTokenError)) {
+          throw err;
+        }
+      }
+    }
+
+    return res.status(204).send();
   });
 
   return router;

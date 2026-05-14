@@ -1,5 +1,6 @@
 import express, { type Express } from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { createAuthRouter, type AuthRouterOptions } from './routes/auth.js';
 
 export interface AppOptions {
@@ -12,6 +13,7 @@ export function createApp({ webOrigin, auth }: AppOptions): Express {
 
   app.use(cors({ origin: webOrigin, credentials: true }));
   app.use(express.json());
+  app.use(cookieParser());
 
   app.get('/healthz', (_req, res) => {
     res.json({ status: 'ok' });

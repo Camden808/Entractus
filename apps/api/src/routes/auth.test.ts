@@ -2,17 +2,24 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
+import * as crypto from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { createApp } from '../app.js';
 
 const findUniqueMock = vi.fn();
 const createMock = vi.fn();
+const revokedFindUniqueMock = vi.fn();
+const revokedCreateMock = vi.fn();
 
 vi.mock('../db.js', () => ({
   prisma: {
     user: {
       findUnique: (...args: unknown[]) => findUniqueMock(...args),
       create: (...args: unknown[]) => createMock(...args),
+    },
+    revokedRefreshToken: {
+      findUnique: (...args: unknown[]) => revokedFindUniqueMock(...args),
+      create: (...args: unknown[]) => revokedCreateMock(...args),
     },
   },
 }));
@@ -307,3 +314,222 @@ describe('POST /api/auth/login', () => {
     expect(findUniqueMock).not.toHaveBeenCalled();
   });
 });
+
+// --- Refresh + logout ---
+
+function signRefreshCookie(opts: { sub: string; jti: string; ttlSec?: number }): string {
+  return jwt.sign({ sub: opts.sub, jti: opts.jti }, TEST_AUTH.jwtRefreshSecret, {
+    expiresIn: opts.ttlSec ?? TEST_AUTH.refreshTokenTtlSeconds,
+  });
+}
+
+describe('POST /api/auth/refresh', () => {
+  beforeEach(() => {
+    findUniqueMock.mockReset();
+    createMock.mockReset();
+    revokedFindUniqueMock.mockReset();
+    revokedCreateMock.mockReset();
+  });
+
+  it('returns 401 when no refresh cookie is present', async () => {
+    const res = await request(makeApp()).post('/api/auth/refresh');
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: 'no_refresh_token' });
+    expect(findUniqueMock).not.toHaveBeenCalled();
+    expect(revokedFindUniqueMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 + clears cookie for a malformed/invalid token', async () => {
+    const res = await request(makeApp())
+      .post('/api/auth/refresh')
+      .set('Cookie', ['refresh_token=not-a-real-jwt']);
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: 'invalid_refresh_token' });
+    const setCookie = (res.headers['set-cookie'] ?? []) as string[];
+    expect(setCookie.some((c) => /^refresh_token=;/.test(c))).toBe(true);
+  });
+
+  it('returns 401 + clears cookie for a wrong-secret token', async () => {
+    const badToken = jwt.sign({ sub: FAKE_USER.id, jti: randomJti() }, 'totally-different-secret', {
+      expiresIn: 3600,
+    });
+    const res = await request(makeApp())
+      .post('/api/auth/refresh')
+      .set('Cookie', [`refresh_token=${badToken}`]);
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: 'invalid_refresh_token' });
+  });
+
+  it('returns 401 + clears cookie for an expired token', async () => {
+    const expiredToken = jwt.sign(
+      { sub: FAKE_USER.id, jti: randomJti() },
+      TEST_AUTH.jwtRefreshSecret,
+      { expiresIn: -10 },
+    );
+    const res = await request(makeApp())
+      .post('/api/auth/refresh')
+      .set('Cookie', [`refresh_token=${expiredToken}`]);
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: 'refresh_token_expired' });
+  });
+
+  it('returns 401 when the jti is in the revocation list', async () => {
+    const jti = randomJti();
+    const token = signRefreshCookie({ sub: FAKE_USER.id, jti });
+    revokedFindUniqueMock.mockResolvedValue({
+      jti,
+      userId: FAKE_USER.id,
+      expiresAt: new Date(Date.now() + 3600_000),
+      revokedAt: new Date(),
+    });
+
+    const res = await request(makeApp())
+      .post('/api/auth/refresh')
+      .set('Cookie', [`refresh_token=${token}`]);
+
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: 'refresh_token_revoked' });
+    expect(revokedFindUniqueMock).toHaveBeenCalledWith({ where: { jti } });
+    expect(revokedCreateMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 when the user has been deleted since the token was issued', async () => {
+    const jti = randomJti();
+    const token = signRefreshCookie({ sub: FAKE_USER.id, jti });
+    revokedFindUniqueMock.mockResolvedValue(null);
+    findUniqueMock.mockResolvedValue(null); // user is gone
+
+    const res = await request(makeApp())
+      .post('/api/auth/refresh')
+      .set('Cookie', [`refresh_token=${token}`]);
+
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: 'invalid_refresh_token' });
+    expect(revokedCreateMock).not.toHaveBeenCalled();
+  });
+
+  it('rotates: revokes old jti, issues new access + refresh cookie', async () => {
+    const oldJti = randomJti();
+    const token = signRefreshCookie({ sub: FAKE_USER.id, jti: oldJti });
+    revokedFindUniqueMock.mockResolvedValue(null);
+    findUniqueMock.mockResolvedValue({ id: FAKE_USER.id, role: 'user' });
+    revokedCreateMock.mockResolvedValue({
+      jti: oldJti,
+      userId: FAKE_USER.id,
+      expiresAt: new Date(Date.now() + 3600_000),
+      revokedAt: new Date(),
+    });
+
+    const res = await request(makeApp())
+      .post('/api/auth/refresh')
+      .set('Cookie', [`refresh_token=${token}`]);
+
+    expect(res.status).toBe(200);
+    expect(res.body.accessToken).toBeTypeOf('string');
+
+    // Old jti was added to the revocation list with the user id and the
+    // original expiry from the JWT.
+    expect(revokedCreateMock).toHaveBeenCalledTimes(1);
+    const [revokeArg] = revokedCreateMock.mock.calls[0] as unknown as [
+      { data: { jti: string; userId: string; expiresAt: Date } },
+    ];
+    expect(revokeArg.data.jti).toBe(oldJti);
+    expect(revokeArg.data.userId).toBe(FAKE_USER.id);
+    expect(revokeArg.data.expiresAt).toBeInstanceOf(Date);
+
+    // New access token verifies with the right claims.
+    const decoded = jwt.verify(res.body.accessToken, TEST_AUTH.jwtAccessSecret) as {
+      sub: string;
+      role: string;
+    };
+    expect(decoded.sub).toBe(FAKE_USER.id);
+    expect(decoded.role).toBe('user');
+
+    // New refresh cookie issued with a different jti than the old one.
+    const setCookie = (res.headers['set-cookie'] ?? []) as string[];
+    const refreshCookie = setCookie.find((c) => c.startsWith('refresh_token='));
+    expect(refreshCookie).toBeDefined();
+    expect(refreshCookie).toMatch(/HttpOnly/i);
+    const raw = refreshCookie?.split(';')[0]?.split('=')[1] ?? '';
+    const newPayload = jwt.verify(raw, TEST_AUTH.jwtRefreshSecret) as {
+      jti: string;
+    };
+    expect(newPayload.jti).not.toBe(oldJti);
+  });
+});
+
+describe('POST /api/auth/logout', () => {
+  beforeEach(() => {
+    findUniqueMock.mockReset();
+    createMock.mockReset();
+    revokedFindUniqueMock.mockReset();
+    revokedCreateMock.mockReset();
+  });
+
+  it('returns 204 and clears the cookie even when no token is present', async () => {
+    const res = await request(makeApp()).post('/api/auth/logout');
+    expect(res.status).toBe(204);
+    const setCookie = (res.headers['set-cookie'] ?? []) as string[];
+    expect(setCookie.some((c) => /^refresh_token=;/.test(c))).toBe(true);
+    expect(revokedCreateMock).not.toHaveBeenCalled();
+  });
+
+  it('revokes the jti when a valid token is presented', async () => {
+    const jti = randomJti();
+    const token = signRefreshCookie({ sub: FAKE_USER.id, jti });
+    revokedCreateMock.mockResolvedValue({
+      jti,
+      userId: FAKE_USER.id,
+      expiresAt: new Date(),
+      revokedAt: new Date(),
+    });
+
+    const res = await request(makeApp())
+      .post('/api/auth/logout')
+      .set('Cookie', [`refresh_token=${token}`]);
+
+    expect(res.status).toBe(204);
+    expect(revokedCreateMock).toHaveBeenCalledTimes(1);
+    const [arg] = revokedCreateMock.mock.calls[0] as unknown as [
+      { data: { jti: string; userId: string } },
+    ];
+    expect(arg.data.jti).toBe(jti);
+    expect(arg.data.userId).toBe(FAKE_USER.id);
+  });
+
+  it('is idempotent when the jti is already revoked (P2002 swallowed)', async () => {
+    const jti = randomJti();
+    const token = signRefreshCookie({ sub: FAKE_USER.id, jti });
+    revokedCreateMock.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: '5.22.0',
+      }),
+    );
+
+    const res = await request(makeApp())
+      .post('/api/auth/logout')
+      .set('Cookie', [`refresh_token=${token}`]);
+
+    expect(res.status).toBe(204);
+  });
+
+  it('returns 204 and skips DB writes for an expired or malformed token', async () => {
+    const expiredToken = jwt.sign(
+      { sub: FAKE_USER.id, jti: randomJti() },
+      TEST_AUTH.jwtRefreshSecret,
+      { expiresIn: -10 },
+    );
+
+    const res = await request(makeApp())
+      .post('/api/auth/logout')
+      .set('Cookie', [`refresh_token=${expiredToken}`]);
+
+    expect(res.status).toBe(204);
+    expect(revokedCreateMock).not.toHaveBeenCalled();
+  });
+});
+
+function randomJti(): string {
+  return crypto.randomUUID();
+}

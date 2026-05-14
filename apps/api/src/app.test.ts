@@ -5,7 +5,10 @@ import { createApp } from './app.js';
 // app.ts now mounts the auth router which imports the Prisma client.
 // Stub the client at module-load time so the suite never touches a DB.
 vi.mock('./db.js', () => ({
-  prisma: { user: { findUnique: vi.fn(), create: vi.fn() } },
+  prisma: {
+    user: { findUnique: vi.fn(), create: vi.fn() },
+    revokedRefreshToken: { findUnique: vi.fn(), create: vi.fn() },
+  },
 }));
 
 const WEB_ORIGIN = 'http://localhost:5173';
