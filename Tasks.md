@@ -29,7 +29,7 @@ Tasks are grouped into phases and ordered roughly by dependency. Each item is si
 ## 5. Backend — Job Postings
 
 - [x] **Public job listings endpoint** — Implement `GET /api/jobs` with query params for search (`q` on title), filters (`state`, `city`, `type`, `company`), and pagination (`page`, `pageSize`). Return total count + items.
-- [ ] **Admin job posting endpoints** — Implement `POST /api/employer/post` (create), `PATCH /api/employer/post/:id` (edit), `POST /api/employer/delete` (delete by id). Gate all three behind an admin-role JWT middleware.
+- [x] **Admin job posting endpoints** — Implement `POST /api/employer/post` (create), `PATCH /api/employer/post/:id` (edit), `POST /api/employer/delete` (delete by id). Gate all three behind an admin-role JWT middleware.
 
 ## 6. Frontend — Foundation
 

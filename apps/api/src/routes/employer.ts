@@ -7,6 +7,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../db.js';
 import { hashPassword } from '../auth/passwords.js';
 import { issueSession, type IssueSessionOptions } from '../auth/session.js';
+import { requireAuth, requireAdmin } from '../auth/middleware.js';
 
 export interface EmployerRouterOptions extends IssueSessionOptions {
   uploadDir: string;
@@ -44,6 +45,48 @@ const signupSchema = z.object({
   requestId: z.string().uuid(),
   password: z.string().min(8).max(72),
 });
+
+// Admin job-posting schemas (Tasks.md §5.2). Paths are
+// POST /api/employer/post, PATCH /api/employer/post/:id,
+// POST /api/employer/delete — see the spec for the (slightly unusual)
+// shape; we follow it literally.
+const createPostSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  state: z.string().trim().min(1).max(100),
+  city: z.string().trim().min(1).max(100),
+  type: z.string().trim().min(1).max(40),
+  company: z.string().trim().min(1).max(200),
+  description: z.string().trim().min(1).max(10000),
+  postedDate: z.coerce.date().optional(),
+});
+
+// PATCH is partial; every field optional but at least one must be set.
+const updatePostSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200).optional(),
+    state: z.string().trim().min(1).max(100).optional(),
+    city: z.string().trim().min(1).max(100).optional(),
+    type: z.string().trim().min(1).max(40).optional(),
+    company: z.string().trim().min(1).max(200).optional(),
+    description: z.string().trim().min(1).max(10000).optional(),
+    postedDate: z.coerce.date().optional(),
+  })
+  .refine((d) => Object.keys(d).length > 0, { message: 'no_fields_to_update' });
+
+const idParamSchema = z.object({ id: z.string().uuid() });
+const deleteBodySchema = z.object({ id: z.string().uuid() });
+
+const POST_SELECT = {
+  id: true,
+  title: true,
+  state: true,
+  city: true,
+  type: true,
+  company: true,
+  postedDate: true,
+  description: true,
+  createdById: true,
+} as const;
 
 export function createEmployerRouter(opts: EmployerRouterOptions): Router {
   const router = Router();
@@ -155,6 +198,74 @@ export function createEmployerRouter(opts: EmployerRouterOptions): Router {
       // Race: someone else created the user between our findUnique + create.
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         return res.status(409).json({ error: 'email_taken' });
+      }
+      throw err;
+    }
+  });
+
+  // --- Admin-only job-posting management (Tasks.md §5.2) ---
+
+  const adminOnly = [requireAuth({ jwtAccessSecret: opts.jwtAccessSecret }), requireAdmin()];
+
+  router.post('/post', ...adminOnly, async (req, res) => {
+    const parsed = createPostSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'invalid_request',
+        issues: parsed.error.issues,
+      });
+    }
+
+    const created = await prisma.jobPosting.create({
+      data: {
+        ...parsed.data,
+        createdById: req.user!.id,
+      },
+      select: POST_SELECT,
+    });
+
+    return res.status(201).json({ post: created });
+  });
+
+  router.patch('/post/:id', ...adminOnly, async (req, res) => {
+    const paramsParsed = idParamSchema.safeParse(req.params);
+    if (!paramsParsed.success) {
+      return res.status(400).json({ error: 'invalid_request', issues: paramsParsed.error.issues });
+    }
+
+    const bodyParsed = updatePostSchema.safeParse(req.body);
+    if (!bodyParsed.success) {
+      return res.status(400).json({ error: 'invalid_request', issues: bodyParsed.error.issues });
+    }
+
+    try {
+      const updated = await prisma.jobPosting.update({
+        where: { id: paramsParsed.data.id },
+        data: bodyParsed.data,
+        select: POST_SELECT,
+      });
+      return res.json({ post: updated });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+        return res.status(404).json({ error: 'post_not_found' });
+      }
+      throw err;
+    }
+  });
+
+  router.post('/delete', ...adminOnly, async (req, res) => {
+    const parsed = deleteBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_request', issues: parsed.error.issues });
+    }
+
+    try {
+      await prisma.jobPosting.delete({ where: { id: parsed.data.id } });
+      return res.status(204).send();
+    } catch (err) {
+      // Idempotent: P2025 (already gone) still ends in the same state.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+        return res.status(204).send();
       }
       throw err;
     }
