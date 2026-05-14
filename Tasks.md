@@ -18,7 +18,7 @@ Tasks are grouped into phases and ordered roughly by dependency. Each item is si
 ## 3. Backend — Authentication
 
 - [x] **Register + login endpoints** — Implement `POST /api/auth/register` and `POST /api/auth/login` with Zod request validation, bcrypt password hashing, and JWT issuance (short-lived access token + longer-lived refresh token stored as httpOnly cookie).
-- [ ] **Refresh + logout endpoints** — Implement `POST /api/auth/refresh` (rotate refresh token, issue new access token) and `POST /api/auth/logout` (clear refresh cookie, invalidate token via DB-backed revocation list or jti).
+- [x] **Refresh + logout endpoints** — Implement `POST /api/auth/refresh` (rotate refresh token, issue new access token) and `POST /api/auth/logout` (clear refresh cookie, invalidate token via DB-backed revocation list or jti).
 - [ ] **Password reset flow** — Implement `POST /api/auth/forgot-password` (generate single-use token, email reset link via Nodemailer — use Ethereal in dev, configurable SMTP in prod) and `POST /api/auth/reset-password` (verify token, update password_hash).
 
 ## 4. Backend — Users & Employer Requests

@@ -29,8 +29,9 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  industries  Industry[]
-  jobPostings JobPosting[]
+  industries           Industry[]
+  jobPostings          JobPosting[]
+  revokedRefreshTokens RevokedRefreshToken[]
 
   @@map("users")
 }
@@ -68,6 +69,21 @@ model Industry {
   user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("industries")
+}
+
+// Refresh-token revocation list. Any jti added here is rejected by
+// POST /api/auth/refresh. Rows are pruneable once their `expiresAt`
+// passes (cleanup is a future cron task).
+model RevokedRefreshToken {
+  jti       String   @id @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  expiresAt DateTime @map("expires_at")
+  revokedAt DateTime @default(now()) @map("revoked_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("revoked_refresh_tokens")
 }
 
 model JobPosting {
