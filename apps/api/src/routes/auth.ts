@@ -1,9 +1,9 @@
-import { Router } from 'express';
+import { Router, type Response } from 'express';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
-import { Prisma } from '@prisma/client';
+import { Prisma, type UserRole } from '@prisma/client';
 import { prisma } from '../db.js';
-import { hashPassword } from '../auth/passwords.js';
+import { hashPassword, verifyPassword } from '../auth/passwords.js';
 import { signAccessToken, signRefreshToken } from '../auth/jwt.js';
 
 export interface AuthRouterOptions {
@@ -26,6 +26,45 @@ const registerSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
   timezone: z.string().min(1).max(64).optional(),
 });
+
+// Login doesn't enforce a length floor — a legacy user with an 8-char password
+// shouldn't be locked out if we ever change the registration minimum. We still
+// cap at 72 because bcrypt does.
+const loginSchema = z.object({
+  email: z
+    .string()
+    .email()
+    .max(254)
+    .transform((s) => s.toLowerCase()),
+  password: z.string().min(1).max(72),
+});
+
+function issueSession(
+  res: Response,
+  user: { id: string; role: UserRole },
+  opts: AuthRouterOptions,
+): string {
+  const accessToken = signAccessToken(
+    { sub: user.id, role: user.role },
+    opts.jwtAccessSecret,
+    opts.accessTokenTtlSeconds,
+  );
+  const refreshToken = signRefreshToken(
+    { sub: user.id, jti: randomUUID() },
+    opts.jwtRefreshSecret,
+    opts.refreshTokenTtlSeconds,
+  );
+
+  res.cookie('refresh_token', refreshToken, {
+    httpOnly: true,
+    secure: opts.isProduction,
+    sameSite: 'lax',
+    path: '/api/auth',
+    maxAge: opts.refreshTokenTtlSeconds * 1000,
+  });
+
+  return accessToken;
+}
 
 export function createAuthRouter(opts: AuthRouterOptions): Router {
   const router = Router();
@@ -68,25 +107,7 @@ export function createAuthRouter(opts: AuthRouterOptions): Router {
         },
       });
 
-      const accessToken = signAccessToken(
-        { sub: user.id, role: user.role },
-        opts.jwtAccessSecret,
-        opts.accessTokenTtlSeconds,
-      );
-      const refreshToken = signRefreshToken(
-        { sub: user.id, jti: randomUUID() },
-        opts.jwtRefreshSecret,
-        opts.refreshTokenTtlSeconds,
-      );
-
-      res.cookie('refresh_token', refreshToken, {
-        httpOnly: true,
-        secure: opts.isProduction,
-        sameSite: 'lax',
-        path: '/api/auth',
-        maxAge: opts.refreshTokenTtlSeconds * 1000,
-      });
-
+      const accessToken = issueSession(res, user, opts);
       return res.status(201).json({ user, accessToken });
     } catch (err) {
       // Race condition: another request created the email between findUnique
@@ -96,6 +117,50 @@ export function createAuthRouter(opts: AuthRouterOptions): Router {
       }
       throw err;
     }
+  });
+
+  router.post('/login', async (req, res) => {
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'invalid_request',
+        issues: parsed.error.issues,
+      });
+    }
+
+    const { email, password } = parsed.data;
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        company: true,
+        displayName: true,
+        timezone: true,
+        role: true,
+        createdAt: true,
+        passwordHash: true,
+      },
+    });
+
+    // Generic message for both "unknown email" and "wrong password" so we
+    // don't leak which accounts exist. Note: this still has a small timing
+    // side-channel because we skip bcrypt.compare when the user is missing.
+    // Acceptable tradeoff for now; revisit if/when enumeration becomes a
+    // real concern.
+    if (!user) {
+      return res.status(401).json({ error: 'invalid_credentials' });
+    }
+
+    const valid = await verifyPassword(password, user.passwordHash);
+    if (!valid) {
+      return res.status(401).json({ error: 'invalid_credentials' });
+    }
+
+    const { passwordHash: _passwordHash, ...userPublic } = user;
+    const accessToken = issueSession(res, user, opts);
+    return res.json({ user: userPublic, accessToken });
   });
 
   return router;
