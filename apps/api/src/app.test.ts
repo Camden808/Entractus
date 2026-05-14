@@ -6,7 +6,7 @@ import { createApp } from './app.js';
 // Stub the client at module-load time so the suite never touches a DB.
 vi.mock('./db.js', () => ({
   prisma: {
-    user: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+    user: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
     revokedRefreshToken: { findUnique: vi.fn(), create: vi.fn() },
     passwordResetToken: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     $transaction: vi.fn(),
