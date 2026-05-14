@@ -9,24 +9,32 @@ vi.mock('./db.js', () => ({
     user: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
     revokedRefreshToken: { findUnique: vi.fn(), create: vi.fn() },
     passwordResetToken: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+    employerRequest: { findUnique: vi.fn(), create: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
 
 const WEB_ORIGIN = 'http://localhost:5173';
+const SESSION_OPTS = {
+  jwtAccessSecret: 'test-access-secret',
+  jwtRefreshSecret: 'test-refresh-secret',
+  accessTokenTtlSeconds: 15 * 60,
+  refreshTokenTtlSeconds: 7 * 24 * 60 * 60,
+  isProduction: false,
+};
 
 function makeApp() {
   return createApp({
     webOrigin: WEB_ORIGIN,
     auth: {
-      jwtAccessSecret: 'test-access-secret',
-      jwtRefreshSecret: 'test-refresh-secret',
-      accessTokenTtlSeconds: 15 * 60,
-      refreshTokenTtlSeconds: 7 * 24 * 60 * 60,
+      ...SESSION_OPTS,
       passwordResetTtlSeconds: 60 * 60,
-      isProduction: false,
       mailer: { sendPasswordReset: vi.fn() },
       webBaseUrl: WEB_ORIGIN,
+    },
+    employer: {
+      ...SESSION_OPTS,
+      uploadDir: './test-uploads',
     },
   });
 }

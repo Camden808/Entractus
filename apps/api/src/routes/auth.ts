@@ -1,16 +1,10 @@
-import { Router, type Response } from 'express';
+import { Router } from 'express';
 import { z } from 'zod';
-import { randomUUID } from 'node:crypto';
-import { Prisma, type UserRole } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../db.js';
 import { hashPassword, verifyPassword } from '../auth/passwords.js';
-import {
-  signAccessToken,
-  signRefreshToken,
-  verifyRefreshToken,
-  JsonWebTokenError,
-  TokenExpiredError,
-} from '../auth/jwt.js';
+import { verifyRefreshToken, JsonWebTokenError, TokenExpiredError } from '../auth/jwt.js';
+import { issueSession, clearRefreshCookie } from '../auth/session.js';
 import { generateResetToken, hashResetToken } from '../auth/tokens.js';
 import type { Mailer } from '../mail/mailer.js';
 
@@ -62,42 +56,6 @@ const resetPasswordSchema = z.object({
   token: z.string().min(1).max(200),
   password: z.string().min(8).max(72),
 });
-
-function issueSession(
-  res: Response,
-  user: { id: string; role: UserRole },
-  opts: AuthRouterOptions,
-): string {
-  const accessToken = signAccessToken(
-    { sub: user.id, role: user.role },
-    opts.jwtAccessSecret,
-    opts.accessTokenTtlSeconds,
-  );
-  const refreshToken = signRefreshToken(
-    { sub: user.id, jti: randomUUID() },
-    opts.jwtRefreshSecret,
-    opts.refreshTokenTtlSeconds,
-  );
-
-  res.cookie('refresh_token', refreshToken, {
-    httpOnly: true,
-    secure: opts.isProduction,
-    sameSite: 'lax',
-    path: '/api/auth',
-    maxAge: opts.refreshTokenTtlSeconds * 1000,
-  });
-
-  return accessToken;
-}
-
-function clearRefreshCookie(res: Response, opts: AuthRouterOptions): void {
-  res.clearCookie('refresh_token', {
-    httpOnly: true,
-    secure: opts.isProduction,
-    sameSite: 'lax',
-    path: '/api/auth',
-  });
-}
 
 export function createAuthRouter(opts: AuthRouterOptions): Router {
   const router = Router();

@@ -1,3 +1,5 @@
+import { mkdir } from 'node:fs/promises';
+import path from 'node:path';
 import { createApp } from './app.js';
 import { parseDurationToSeconds } from './auth/duration.js';
 import { createMailer, type SmtpConfig } from './mail/mailer.js';
@@ -12,6 +14,11 @@ if (!jwtAccessSecret || !jwtRefreshSecret) {
 }
 
 const isProduction = process.env.NODE_ENV === 'production';
+const accessTokenTtlSeconds = parseDurationToSeconds(process.env.JWT_ACCESS_TTL ?? '15m');
+const refreshTokenTtlSeconds = parseDurationToSeconds(process.env.JWT_REFRESH_TTL ?? '7d');
+
+const uploadDir = path.resolve(process.env.UPLOAD_DIR ?? './uploads');
+await mkdir(uploadDir, { recursive: true });
 
 function resolveSmtp(): SmtpConfig {
   const host = process.env.SMTP_HOST;
@@ -42,12 +49,20 @@ const app = createApp({
   auth: {
     jwtAccessSecret,
     jwtRefreshSecret,
-    accessTokenTtlSeconds: parseDurationToSeconds(process.env.JWT_ACCESS_TTL ?? '15m'),
-    refreshTokenTtlSeconds: parseDurationToSeconds(process.env.JWT_REFRESH_TTL ?? '7d'),
+    accessTokenTtlSeconds,
+    refreshTokenTtlSeconds,
     passwordResetTtlSeconds: parseDurationToSeconds(process.env.PASSWORD_RESET_TTL ?? '1h'),
     isProduction,
     mailer,
     webBaseUrl: process.env.WEB_BASE_URL ?? webOrigin,
+  },
+  employer: {
+    jwtAccessSecret,
+    jwtRefreshSecret,
+    accessTokenTtlSeconds,
+    refreshTokenTtlSeconds,
+    isProduction,
+    uploadDir,
   },
 });
 
