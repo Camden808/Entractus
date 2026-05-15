@@ -1,4 +1,5 @@
 import { Link, Outlet } from 'react-router';
+import GlobalNav from './GlobalNav';
 
 function Layout() {
   const year = new Date().getFullYear();
@@ -12,7 +13,7 @@ function Layout() {
         Skip to content
       </a>
 
-      <header className="border-b border-slate-200 bg-surface">
+      <header className="relative border-b border-slate-200 bg-surface">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4 lg:px-10">
           <Link
             to="/"
@@ -20,7 +21,7 @@ function Layout() {
           >
             Entractus Recruitment
           </Link>
-          <nav aria-label="Primary" />
+          <GlobalNav />
         </div>
       </header>
 
