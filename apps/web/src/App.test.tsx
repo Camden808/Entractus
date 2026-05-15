@@ -6,7 +6,7 @@ describe('<App />', () => {
   it('renders the home page at the index route', () => {
     render(<App />);
     expect(
-      screen.getByRole('heading', { level: 1, name: /entractus recruitment/i }),
+      screen.getByRole('heading', { level: 1, name: /building careers/i }),
     ).toBeInTheDocument();
   });
 
