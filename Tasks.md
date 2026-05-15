@@ -33,7 +33,7 @@ Tasks are grouped into phases and ordered roughly by dependency. Each item is si
 
 ## 6. Frontend — Foundation
 
-- [ ] **Routing + global layout** — Set up `react-router` routes for all screens listed in Requirements.md. Build a `<Layout>` with header/footer and Tailwind theme tokens (brand colors, font stack, spacing scale).
+- [x] **Routing + global layout** — Set up `react-router` routes for all screens listed in Requirements.md. Build a `<Layout>` with header/footer and Tailwind theme tokens (brand colors, font stack, spacing scale).
 - [ ] **Global navigation component** — Build the nav: Hire Employees button, Job Openings button, Email-us and Phone-us buttons, plus a dropdown with For Employers / For Job Seekers / About / Blog / Contact Us. Make it responsive (mobile hamburger).
 - [ ] **Shared primitives + API client** — Build reusable form components (Input, Select, Textarea, FileDropzone, Button) and an `apiClient` wrapper (fetch-based or axios) that injects the JWT access token and auto-refreshes on 401.
 
