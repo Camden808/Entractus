@@ -9,7 +9,7 @@ function renderAt(path: string) {
 }
 
 const cases: Array<{ path: string; heading: RegExp }> = [
-  { path: '/', heading: /^entractus recruitment$/i },
+  { path: '/', heading: /^building careers/i },
   { path: '/employers', heading: /^for employers$/i },
   { path: '/contact', heading: /^contact us$/i },
   { path: '/jobs', heading: /^job openings$/i },
