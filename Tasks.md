@@ -41,7 +41,7 @@ Tasks are grouped into phases and ordered roughly by dependency. Each item is si
 
 - [x] **Landing / Main page** — Hero banner with business imagery, headline copy, CTAs linking to Job Openings and the employer contact form.
 - [x] **Employers page** — Static page with the "Recruitment Service Request" copy from Requirements.md, the bulleted reasons-clients-hire-us list, and a "Contact Us Today" CTA that routes to the Contact page.
-- [ ] **Contact page (employer form)** — Build the full form: Contact Name (first/last), Company Name, Company Address, City, Phone, Email, Position Title, Position Type (Temporary / Temp To Perm / Direct Hire), Hours (Full Time / Part Time), Duties & Responsibilities, file drag-drop for job description, additional questions textarea. Validate client-side and POST to `/api/employer/request`. Show success + error states.
+- [x] **Contact page (employer form)** — Build the full form: Contact Name (first/last), Company Name, Company Address, City, Phone, Email, Position Title, Position Type (Temporary / Temp To Perm / Direct Hire), Hours (Full Time / Part Time), Duties & Responsibilities, file drag-drop for job description, additional questions textarea. Validate client-side and POST to `/api/employer/request`. Show success + error states.
 - [ ] **About + Blog placeholder pages** — Static About page with company copy; Blog page renders a stubbed post list (can be hard-coded for now) so navigation links resolve.
 
 ## 8. Frontend — Job Openings
