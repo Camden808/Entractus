@@ -61,7 +61,7 @@ Tasks are grouped into phases and ordered roughly by dependency. Each item is si
 
 ## 11. Deployment & Hosting
 
-- [ ] **Provision managed Postgres** — Create a Postgres instance on Railway or Render. Set `DATABASE_URL` secret. Run `prisma migrate deploy` against it from CI or locally.
+- [x] **Provision managed Postgres** — Create a Postgres instance on Railway or Render. Set `DATABASE_URL` secret. Run `prisma migrate deploy` against it from CI or locally.
 - [ ] **Deploy API** — Deploy `apps/api` to Railway or Render. Configure env vars (`DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, SMTP creds, `WEB_ORIGIN` for CORS). Expose a `/healthz` endpoint and confirm it returns 200.
 - [ ] **Deploy frontend + verify end-to-end** — Deploy `apps/web` to Vercel with `VITE_API_URL` pointing at the deployed API. Configure CORS on the API to allow the Vercel origin. Smoke-test: register → log in → submit employer form → browse job gallery → admin can create a posting.
 
