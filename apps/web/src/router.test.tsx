@@ -2,10 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { routes } from './router';
+import { MockAuthProvider } from './test/auth-test-utils';
 
 function renderAt(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
-  return render(<RouterProvider router={router} />);
+  return render(
+    <MockAuthProvider>
+      <RouterProvider router={router} />
+    </MockAuthProvider>,
+  );
 }
 
 const cases: Array<{ path: string; heading: RegExp }> = [
@@ -18,7 +23,9 @@ const cases: Array<{ path: string; heading: RegExp }> = [
   { path: '/login', heading: /^log in$/i },
   { path: '/register', heading: /^create an account$/i },
   { path: '/forgot-password', heading: /^forgot your password\?$/i },
-  { path: '/reset-password', heading: /^reset your password$/i },
+  // ResetPasswordPage requires a ?token= to render the form; without one it
+  // shows an error heading instead.
+  { path: '/reset-password?token=test-token', heading: /^reset your password$/i },
   { path: '/account', heading: /^your account$/i },
   { path: '/admin/jobs', heading: /^manage job postings$/i },
 ];

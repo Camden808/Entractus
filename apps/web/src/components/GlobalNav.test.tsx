@@ -1,16 +1,18 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { render, screen } from '@testing-library/react';
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router';
 import GlobalNav from './GlobalNav';
+import { MockAuthProvider, makeAuthValue, TEST_USER } from '../test/auth-test-utils';
+import type { AuthContextValue } from '../lib/auth';
 
-function renderNav(initialPath = '/') {
+function renderNav(initialPath = '/', authValue?: AuthContextValue) {
   const router = createMemoryRouter(
     [
       {
         path: '/',
         element: (
-          <>
+          <MockAuthProvider value={authValue}>
             <GlobalNav />
             <button type="button" data-testid="outside">
               outside
@@ -18,7 +20,7 @@ function renderNav(initialPath = '/') {
             <main>
               <Outlet />
             </main>
-          </>
+          </MockAuthProvider>
         ),
         children: [
           { index: true, element: <p>home page</p> },
@@ -175,5 +177,30 @@ describe('<GlobalNav /> — mobile hamburger', () => {
     expect(screen.getByRole('button', { name: /close menu/i })).toBeInTheDocument();
     await user.keyboard('{Escape}');
     expect(screen.getByRole('button', { name: /open menu/i })).toBeInTheDocument();
+  });
+});
+
+describe('<GlobalNav /> — auth state', () => {
+  it('shows a Log in link and hides Account / Log out when unauthenticated', () => {
+    renderNav();
+    expect(screen.getByRole('link', { name: /^log in$/i })).toHaveAttribute('href', '/login');
+    expect(screen.queryByRole('link', { name: /^account$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^log out$/i })).not.toBeInTheDocument();
+  });
+
+  it('shows Account link and Log out button (and hides Log in) when authenticated', () => {
+    renderNav('/', makeAuthValue({ state: { status: 'authenticated', user: TEST_USER } }));
+    expect(screen.getByRole('link', { name: /^account$/i })).toHaveAttribute('href', '/account');
+    expect(screen.getByRole('button', { name: /^log out$/i })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^log in$/i })).not.toBeInTheDocument();
+  });
+
+  it('clicking Log out calls auth.logout', async () => {
+    const logout = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderNav('/', makeAuthValue({ state: { status: 'authenticated', user: TEST_USER }, logout }));
+
+    await user.click(screen.getByRole('button', { name: /^log out$/i }));
+    expect(logout).toHaveBeenCalledTimes(1);
   });
 });

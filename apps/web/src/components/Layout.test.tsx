@@ -3,13 +3,18 @@ import { render, screen } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import type { ReactNode } from 'react';
 import Layout from './Layout';
+import { MockAuthProvider } from '../test/auth-test-utils';
 
 function renderLayoutWith(child: ReactNode) {
   const router = createMemoryRouter(
     [{ path: '/', element: <Layout />, children: [{ index: true, element: child }] }],
     { initialEntries: ['/'] },
   );
-  return render(<RouterProvider router={router} />);
+  return render(
+    <MockAuthProvider>
+      <RouterProvider router={router} />
+    </MockAuthProvider>,
+  );
 }
 
 describe('<Layout />', () => {
