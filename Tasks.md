@@ -53,7 +53,7 @@ Tasks are grouped into phases and ordered roughly by dependency. Each item is si
 ## 9. Frontend — Auth & Account Portal
 
 - [x] **Auth screens** — Build Login, Register, Forgot Password, and Reset Password pages with form validation and error display. Persist tokens via the apiClient.
-- [ ] **Account portal page** — Authenticated route showing profile fields (email, display_name, timezone), edit form, change-password form, and a destructive "Delete account" action with confirmation. Link from the global nav when logged in.
+- [x] **Account portal page** — Authenticated route showing profile fields (email, display_name, timezone), edit form, change-password form, and a destructive "Delete account" action with confirmation. Link from the global nav when logged in.
 
 ## 10. Admin — Job Posting Management
 
