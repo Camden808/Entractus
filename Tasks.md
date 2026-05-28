@@ -46,7 +46,7 @@ Tasks are grouped into phases and ordered roughly by dependency. Each item is si
 
 ## 8. Frontend — Job Openings
 
-- [ ] **Job gallery component** — Card grid showing Job Title, State/City, Type, Company, Posted Date. Include loading skeleton, empty state, and error state. Fetch from `GET /api/jobs`.
+- [x] **Job gallery component** — Card grid showing Job Title, State/City, Type, Company, Posted Date. Include loading skeleton, empty state, and error state. Fetch from `GET /api/jobs`.
 - [ ] **Search + filter controls** — Search input (debounced) and filter dropdowns (state, city, type, company). Wire to the same `GET /api/jobs` endpoint via query params. Sync filter state to URL so links are shareable.
 
 ## 9. Frontend — Auth & Account Portal
