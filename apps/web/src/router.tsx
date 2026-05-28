@@ -13,6 +13,7 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 import AccountPage from './pages/AccountPage';
 import AdminJobsPage from './pages/AdminJobsPage';
 import NotFoundPage from './pages/NotFoundPage';
+import RequireAdmin from './components/RequireAdmin';
 
 export const routes: RouteObject[] = [
   {
@@ -30,7 +31,14 @@ export const routes: RouteObject[] = [
       { path: 'forgot-password', element: <ForgotPasswordPage /> },
       { path: 'reset-password', element: <ResetPasswordPage /> },
       { path: 'account', element: <AccountPage /> },
-      { path: 'admin/jobs', element: <AdminJobsPage /> },
+      {
+        path: 'admin/jobs',
+        element: (
+          <RequireAdmin>
+            <AdminJobsPage />
+          </RequireAdmin>
+        ),
+      },
       { path: '*', element: <NotFoundPage /> },
     ],
   },
