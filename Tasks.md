@@ -57,7 +57,7 @@ Tasks are grouped into phases and ordered roughly by dependency. Each item is si
 ## 10. Admin — Job Posting Management
 
 - [x] **Admin role + route gating** — Add `role` enum (`user` | `admin`) to the `User` model and migration. Seed an initial admin. Add backend admin-only middleware and frontend route guard that redirects non-admins.
-- [ ] **Admin job posting UI** — Admin-only page listing all postings with create, edit, and delete actions. Form fields match the `JobPosting` model. Wire to the admin endpoints from §5.
+- [x] **Admin job posting UI** — Admin-only page listing all postings with create, edit, and delete actions. Form fields match the `JobPosting` model. Wire to the admin endpoints from §5.
 
 ## 11. Deployment & Hosting
 
