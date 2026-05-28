@@ -19,4 +19,13 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // Test utilities are never HMR'd, so the fast-refresh rule (which
+    // forbids mixing component + non-component exports in one file) adds
+    // friction without benefit.
+    files: ['src/test/**/*.{ts,tsx}', '**/*.test.{ts,tsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ]);
