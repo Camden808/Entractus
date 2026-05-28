@@ -2,18 +2,23 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { routes } from './router';
-import { MockAuthProvider } from './test/auth-test-utils';
+import { MockAuthProvider, makeAuthValue, TEST_USER } from './test/auth-test-utils';
+import type { AuthContextValue } from './lib/auth';
 
-function renderAt(path: string) {
+function renderAt(path: string, authValue?: AuthContextValue) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
   return render(
-    <MockAuthProvider>
+    <MockAuthProvider value={authValue}>
       <RouterProvider router={router} />
     </MockAuthProvider>,
   );
 }
 
-const cases: Array<{ path: string; heading: RegExp }> = [
+const ADMIN = makeAuthValue({
+  state: { status: 'authenticated', user: { ...TEST_USER, role: 'admin' } },
+});
+
+const cases: Array<{ path: string; heading: RegExp; auth?: AuthContextValue }> = [
   { path: '/', heading: /^building careers/i },
   { path: '/employers', heading: /^recruitment service request$/i },
   { path: '/contact', heading: /^contact us$/i },
@@ -27,13 +32,15 @@ const cases: Array<{ path: string; heading: RegExp }> = [
   // shows an error heading instead.
   { path: '/reset-password?token=test-token', heading: /^reset your password$/i },
   { path: '/account', heading: /^your account$/i },
-  { path: '/admin/jobs', heading: /^manage job postings$/i },
+  // /admin/jobs is gated by RequireAdmin — supply an admin session so we
+  // exercise the rendered route rather than the redirect.
+  { path: '/admin/jobs', heading: /^manage job postings$/i, auth: ADMIN },
 ];
 
 describe('router', () => {
-  for (const { path, heading } of cases) {
+  for (const { path, heading, auth } of cases) {
     it(`renders the expected page at ${path}`, () => {
-      renderAt(path);
+      renderAt(path, auth);
       expect(screen.getByRole('heading', { level: 1, name: heading })).toBeInTheDocument();
     });
   }
