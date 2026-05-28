@@ -203,4 +203,24 @@ describe('<GlobalNav /> — auth state', () => {
     await user.click(screen.getByRole('button', { name: /^log out$/i }));
     expect(logout).toHaveBeenCalledTimes(1);
   });
+
+  it('hides the Admin link for a plain authenticated user', () => {
+    renderNav(
+      '/',
+      makeAuthValue({
+        state: { status: 'authenticated', user: { ...TEST_USER, role: 'user' } },
+      }),
+    );
+    expect(screen.queryByRole('link', { name: /^admin$/i })).not.toBeInTheDocument();
+  });
+
+  it('exposes an Admin link pointing at /admin/jobs for admin users', () => {
+    renderNav(
+      '/',
+      makeAuthValue({
+        state: { status: 'authenticated', user: { ...TEST_USER, role: 'admin' } },
+      }),
+    );
+    expect(screen.getByRole('link', { name: /^admin$/i })).toHaveAttribute('href', '/admin/jobs');
+  });
 });
