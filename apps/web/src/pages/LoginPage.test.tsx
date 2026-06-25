@@ -3,8 +3,14 @@ import userEvent from '@testing-library/user-event';
 import { render, screen } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import LoginPage from './LoginPage';
-import AccountPage from './AccountPage';
 import { MockAuthProvider, makeAuthValue, TEST_USER } from '../test/auth-test-utils';
+
+// Stub destination so we don't have to fully wire AccountPage's own auth
+// gating into these LoginPage tests. We're verifying navigation, not the
+// account portal itself.
+function AccountStub() {
+  return <h1>Your Account</h1>;
+}
 import type { AuthContextValue } from '../lib/auth';
 
 const { ApiErrorMock } = vi.hoisted(() => {
@@ -31,7 +37,7 @@ function renderLogin(authValue?: AuthContextValue, initialPath = '/login') {
   const router = createMemoryRouter(
     [
       { path: '/login', element: <LoginPage /> },
-      { path: '/account', element: <AccountPage /> },
+      { path: '/account', element: <AccountStub /> },
     ],
     { initialEntries: [initialPath] },
   );
