@@ -7,6 +7,8 @@
     "apps/*"
   ],
   "scripts": {
+    "start": "npm run db:up && concurrently -k -n api,web -c blue.bold,green.bold \"npm:dev:api\" \"npm:dev:web\"",
+    "dev": "concurrently -k -n api,web -c blue.bold,green.bold \"npm:dev:api\" \"npm:dev:web\"",
     "dev:web": "npm --workspace apps/web run dev",
     "dev:api": "npm --workspace apps/api run dev",
     "build:web": "npm --workspace apps/web run build",
@@ -30,6 +32,7 @@
     "format:check": "prettier --check \".\""
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "prettier": "^3.3.3"
   }
 }
