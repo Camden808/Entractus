@@ -25,6 +25,7 @@ Tasks are grouped into phases and ordered roughly by dependency. Each item is si
 
 - [x] **User account endpoints** — Implement `GET /api/users/me`, `PATCH /api/users/me` (update display_name, timezone), `DELETE /api/users/me` (cascade-delete user's owned data). All behind a JWT auth middleware.
 - [x] **Employer request endpoints** — Implement `POST /api/employer/request` (public; validates and stores the contact form payload, accepts optional file upload via Multer to local disk or S3) and `POST /api/employer/signup` (converts an employer request into a `User` account).
+- [x] **Contact email + employer-request notification** — Use `contact@entractus.com` as the "Email Us" address in the global navigation (`GlobalNav.tsx`), replacing the `hello@entractus.example` placeholder. When an employer submits the Contact form (`POST /api/employer/request` from `ContactPage.tsx`), send a notification email to `contact@entractus.com` (via the existing `apps/api/src/mail/mailer.ts`) containing every field submitted — contact name, company, address, city, phone, email, position title, position type, hours, duties & responsibilities, additional questions, and a link/attachment for the uploaded job description. Set `reply-to` to the submitter's email. Send after the record is stored so a mail failure doesn't fail the request; add a test asserting the mailer is invoked with the form data.
 
 ## 5. Backend — Job Postings
 
@@ -61,10 +62,35 @@ Tasks are grouped into phases and ordered roughly by dependency. Each item is si
 
 ## 11. Deployment & Hosting
 
-- [ ] **Provision managed Postgres** — Create a Postgres instance on Railway or Render. Set `DATABASE_URL` secret. Run `prisma migrate deploy` against it from CI or locally.
+- [ ] **Provision managed Postgres** — Create a Postgres instance on Railway. Set `DATABASE_URL` secret. Run `prisma migrate deploy` against it from CI or locally.
 - [ ] **Deploy API** — Deploy `apps/api` to Railway or Render. Configure env vars (`DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, SMTP creds, `WEB_ORIGIN` for CORS). Expose a `/healthz` endpoint and confirm it returns 200.
 - [ ] **Deploy frontend + verify end-to-end** — Deploy `apps/web` to Vercel with `VITE_API_URL` pointing at the deployed API. Configure CORS on the API to allow the Vercel origin. Smoke-test: register → log in → submit employer form → browse job gallery → admin can create a posting.
 
+## 12. Continuous Integration & Delivery
+
+- [ ] **CI pipeline** — Add a GitHub Actions workflow that runs on every PR and push to `master`: `npm ci`, then `npm run test`, `npm run typecheck`, `npm run lint`, and `npx prettier --check .` across both workspaces. Spin up a Postgres service container so API tests have a database. Make the checks required for merge.
+- [ ] **Automated migrations + deploy** — Extend CI/CD so merges to `master` run `prisma migrate deploy` against the managed Postgres, then trigger the API (Railway/Render) and web (Vercel) deployments. Gate deploy on the test job passing; surface deploy status back to the PR.
+
+## 13. End-to-End Testing
+
+- [ ] **Playwright setup** — Add Playwright to the repo with a config that boots web + api against an ephemeral test database, plus a root `npm run test:e2e` script and a CI job that runs it headless. Seed deterministic fixtures (admin user, sample postings) before each run.
+- [ ] **E2E smoke flows** — Write end-to-end specs for the critical paths: register → log in → submit the employer contact form, browse + filter the job gallery, account portal edit/delete, and admin create/edit/delete of a job posting. Assert on visible UI state and key API responses.
+
+## 14. Accessibility & SEO
+
+- [ ] **Accessibility audit** — Pass an automated a11y check (axe via `@axe-core/playwright` or Lighthouse) on every public page. Fix violations: semantic landmarks, labelled form controls, focus order, keyboard navigation for the nav dropdown + mobile hamburger, color-contrast against the brand tokens, and visible focus rings.
+- [ ] **SEO + metadata** — Add per-route `<title>`/meta description (react-helmet or equivalent), Open Graph + Twitter card tags, favicon/social images, a generated `sitemap.xml` and `robots.txt`, and structured data (JobPosting schema.org) on job listings. Verify a Lighthouse SEO score of 100.
+
+## 15. Monitoring & Analytics
+
+- [ ] **Error tracking + logging** — Wire Sentry (or equivalent) into both apps for client + server error capture with source maps. Add structured request logging (pino) on the API and a `/healthz` readiness check covering DB connectivity.
+- [ ] **Analytics + uptime monitoring** — Add privacy-friendly web analytics (Plausible/Umami) to the frontend and an uptime monitor (e.g. Better Stack/UptimeRobot) hitting `/healthz` with alerting on failure. Document where dashboards live.
+
+## 16. Production Domain
+
+- [ ] **Deploy site to Entractus.com** — Domain is registered at **GoDaddy** (registrar only — GoDaddy's PHP/cPanel shared hosting can't run the Node/Express API or Postgres, so the app is *not* hosted there). In GoDaddy's DNS, point the `entractus.com` apex + `www` records at the Vercel frontend and an `api.entractus.com` CNAME at the API host (Railway/Render). Provision TLS certificates, force HTTPS + www→apex (or apex→www) redirects, update `VITE_API_URL`, `WEB_ORIGIN`, and CORS allowlist to the production domains, and re-run the end-to-end smoke test against the live site.
+- [ ] **Configure production mailbox + SMTP sender** — Stand up a real `contact@entractus.com` mailbox (GoDaddy/Microsoft 365 email, Google Workspace, or equivalent) so the address used by the "Email Us" nav link and the employer-request notification (§4) can both send and receive. Set up a transactional SMTP sender for the API (e.g. Resend/Postmark/SendGrid, or the mailbox provider's SMTP), and configure the prod env vars (SMTP host/port/user/pass, from-address `contact@entractus.com`) — replacing the dev Ethereal transport. Add SPF, DKIM, and DMARC DNS records in GoDaddy so outbound mail isn't flagged as spam, then send a live test through the Contact form and confirm the notification arrives at the real inbox.
+
 ---
 
-**Total: 28 tasks.** Work top-to-bottom; phases 3–5 (backend) and 6 (frontend foundation) can be parallelized once §1 and §2 are done.
+**Total: 41 tasks.** Work top-to-bottom; phases 3–5 (backend) and 6 (frontend foundation) can be parallelized once §1 and §2 are done. Phases 12–16 are production-hardening and can begin once the core app (§1–§11) is deployable.

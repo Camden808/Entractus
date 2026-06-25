@@ -36,6 +36,8 @@ function makeApp() {
     employer: {
       ...SESSION_OPTS,
       uploadDir: './test-uploads',
+      mailer: { sendEmployerRequest: vi.fn() },
+      notificationEmail: 'contact@entractus.com',
     },
   });
 }

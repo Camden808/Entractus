@@ -45,6 +45,8 @@ function makeApp() {
       refreshTokenTtlSeconds: TEST_AUTH.refreshTokenTtlSeconds,
       isProduction: false,
       uploadDir: './test-uploads',
+      mailer: { sendEmployerRequest: vi.fn() },
+      notificationEmail: 'contact@entractus.com',
     },
   });
 }

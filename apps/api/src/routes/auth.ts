@@ -15,7 +15,7 @@ export interface AuthRouterOptions {
   refreshTokenTtlSeconds: number;
   passwordResetTtlSeconds: number;
   isProduction: boolean;
-  mailer: Mailer;
+  mailer: Pick<Mailer, 'sendPasswordReset'>;
   webBaseUrl: string;
 }
 

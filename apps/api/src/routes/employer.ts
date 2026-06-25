@@ -8,12 +8,16 @@ import { prisma } from '../db.js';
 import { hashPassword } from '../auth/passwords.js';
 import { issueSession, type IssueSessionOptions } from '../auth/session.js';
 import { requireAuth, requireAdmin } from '../auth/middleware.js';
+import type { Mailer } from '../mail/mailer.js';
 
 export interface EmployerRouterOptions extends IssueSessionOptions {
   uploadDir: string;
   // Optional override so tests can swap in memory storage. Production
   // leaves this unset and gets disk storage rooted at uploadDir.
   uploadStorage?: StorageEngine;
+  mailer: Pick<Mailer, 'sendEmployerRequest'>;
+  // Internal recipient for employer-request notifications (Tasks.md §4).
+  notificationEmail: string;
 }
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -138,6 +142,24 @@ export function createEmployerRouter(opts: EmployerRouterOptions): Router {
       },
       select: { id: true, createdAt: true },
     });
+
+    // Notify the internal recruitment inbox. The record is already stored,
+    // so a mail failure must not fail the submission — log and move on.
+    try {
+      await opts.mailer.sendEmployerRequest({
+        to: opts.notificationEmail,
+        replyTo: data.email,
+        request: { ...data, jobDescriptionFilename: req.file?.filename ?? null },
+        jobDescription: req.file
+          ? {
+              filename: req.file.originalname,
+              ...(req.file.path ? { path: req.file.path } : { content: req.file.buffer }),
+            }
+          : null,
+      });
+    } catch (err) {
+      console.error('[employer:request] notification email failed', err);
+    }
 
     return res.status(201).json({
       requestId: created.id,
