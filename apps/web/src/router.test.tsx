@@ -15,6 +15,9 @@ function renderAt(path: string, authValue?: AuthContextValue) {
 }
 
 const AUTHED = makeAuthValue({ state: { status: 'authenticated', user: TEST_USER } });
+const ADMIN = makeAuthValue({
+  state: { status: 'authenticated', user: { ...TEST_USER, role: 'admin' } },
+});
 
 const cases: Array<{ path: string; heading: RegExp; auth?: AuthContextValue }> = [
   { path: '/', heading: /^building careers/i },
@@ -32,7 +35,9 @@ const cases: Array<{ path: string; heading: RegExp; auth?: AuthContextValue }> =
   // AccountPage redirects unauthenticated visitors to /login, so we pass an
   // authenticated session to exercise the rendered route.
   { path: '/account', heading: /^your account$/i, auth: AUTHED },
-  { path: '/admin/jobs', heading: /^manage job postings$/i },
+  // /admin/jobs is gated by RequireAdmin — supply an admin session so we
+  // exercise the rendered route rather than the redirect.
+  { path: '/admin/jobs', heading: /^manage job postings$/i, auth: ADMIN },
 ];
 
 describe('router', () => {

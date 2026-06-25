@@ -37,6 +37,7 @@ function GlobalNav() {
   const { state, logout } = useAuth();
   const navigate = useNavigate();
   const isAuthed = state.status === 'authenticated';
+  const isAdmin = state.status === 'authenticated' && state.user.role === 'admin';
 
   async function handleLogout(closeMobile = false) {
     await logout();
@@ -96,6 +97,13 @@ function GlobalNav() {
         </li>
         {isAuthed ? (
           <>
+            {isAdmin && (
+              <li>
+                <Link to="/admin/jobs" className={desktopGhostClass}>
+                  Admin
+                </Link>
+              </li>
+            )}
             <li>
               <Link to="/account" className={desktopGhostClass}>
                 Account
@@ -227,6 +235,17 @@ function GlobalNav() {
             </li>
             {isAuthed ? (
               <>
+                {isAdmin && (
+                  <li>
+                    <Link
+                      to="/admin/jobs"
+                      onClick={() => setMobileOpen(false)}
+                      className={mobileItemClass}
+                    >
+                      Admin
+                    </Link>
+                  </li>
+                )}
                 <li>
                   <Link
                     to="/account"
