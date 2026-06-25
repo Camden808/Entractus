@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { Link, NavLink } from 'react-router';
+import { Link, NavLink, useNavigate } from 'react-router';
+import { useAuth } from '../lib/auth';
 
 const CONTACT_EMAIL = 'contact@entractus.com';
 const CONTACT_PHONE_DISPLAY = '(555) 010-2024';
@@ -33,6 +34,15 @@ function GlobalNav() {
   const dropdownRef = useRef<HTMLLIElement | null>(null);
   const dropdownMenuId = useId();
   const mobileMenuId = useId();
+  const { state, logout } = useAuth();
+  const navigate = useNavigate();
+  const isAuthed = state.status === 'authenticated';
+
+  async function handleLogout(closeMobile = false) {
+    await logout();
+    if (closeMobile) setMobileOpen(false);
+    navigate('/', { replace: true });
+  }
 
   useEffect(() => {
     if (!dropdownOpen) return;
@@ -84,6 +94,30 @@ function GlobalNav() {
             Phone Us
           </a>
         </li>
+        {isAuthed ? (
+          <>
+            <li>
+              <Link to="/account" className={desktopGhostClass}>
+                Account
+              </Link>
+            </li>
+            <li>
+              <button
+                type="button"
+                onClick={() => void handleLogout()}
+                className={desktopGhostClass}
+              >
+                Log out
+              </button>
+            </li>
+          </>
+        ) : (
+          <li>
+            <Link to="/login" className={desktopGhostClass}>
+              Log in
+            </Link>
+          </li>
+        )}
         <li ref={dropdownRef} className="relative">
           <button
             type="button"
@@ -191,6 +225,34 @@ function GlobalNav() {
                 Phone Us
               </a>
             </li>
+            {isAuthed ? (
+              <>
+                <li>
+                  <Link
+                    to="/account"
+                    onClick={() => setMobileOpen(false)}
+                    className={mobileItemClass}
+                  >
+                    Account
+                  </Link>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => void handleLogout(true)}
+                    className={`${mobileItemClass} w-full text-left`}
+                  >
+                    Log out
+                  </button>
+                </li>
+              </>
+            ) : (
+              <li>
+                <Link to="/login" onClick={() => setMobileOpen(false)} className={mobileItemClass}>
+                  Log in
+                </Link>
+              </li>
+            )}
             {DROPDOWN_ITEMS.map(({ label, to }) => (
               <li key={`mobile-more-${to}-${label}`}>
                 <NavLink
