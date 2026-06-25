@@ -6,8 +6,11 @@ app deploys separately to Vercel (Task 11.3).
 ## What's already wired up
 
 - **`railway.json`** (repo root) drives the deploy:
-  - `build`: `npm ci && npm --workspace apps/api run build` (the build runs
-    `prisma generate && tsc`, emitting `apps/api/dist`).
+  - `build`: `npm ci --include=dev && npm --workspace apps/api run build` (the
+    build runs `prisma generate && tsc`, emitting `apps/api/dist`). The
+    `--include=dev` is required because `prisma` and `typescript` are
+    devDependencies, and Railway builds with `NODE_ENV=production` (which would
+    otherwise skip them, so `tsc` would be "not found").
   - `startCommand`: `npm --workspace apps/api run start` → `node dist/index.js`.
   - `preDeployCommand`: `npm --workspace apps/api run db:migrate:deploy`
     (`prisma migrate deploy`) — applies migrations before each release.
@@ -93,6 +96,10 @@ Once you've confirmed a 200 from the live URL, tick **Task 11.2** in
 
 ## Troubleshooting
 
+- **Build fails with `tsc: not found` / exit code 240** — devDependencies
+  (`prisma`, `typescript`) were skipped because Railway builds with
+  `NODE_ENV=production`. The build command uses `npm ci --include=dev` to force
+  them in; make sure you're deploying a commit that includes that fix.
 - **Build fails on `prisma generate`** — ensure `DATABASE_URL` is set (Prisma
   reads it at generate/deploy time) and the Postgres reference resolves.
 - **Healthcheck times out** — confirm the service didn't crash on boot
