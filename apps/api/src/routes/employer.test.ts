@@ -12,6 +12,7 @@ const requestCreateMock = vi.fn();
 const jobCreateMock = vi.fn();
 const jobUpdateMock = vi.fn();
 const jobDeleteMock = vi.fn();
+const sendEmployerRequestMock = vi.fn();
 
 vi.mock('../db.js', () => ({
   prisma: {
@@ -61,6 +62,10 @@ function makeApp() {
       // Memory storage so tests never write to disk; req.file.filename
       // is unset, which is what the no-file path tests assume.
       uploadStorage: multer.memoryStorage(),
+      mailer: {
+        sendEmployerRequest: (...args: unknown[]) => sendEmployerRequestMock(...args),
+      },
+      notificationEmail: 'contact@entractus.com',
     },
   });
 }
@@ -89,6 +94,7 @@ const VALID_FORM = {
 describe('POST /api/employer/request', () => {
   beforeEach(() => {
     requestCreateMock.mockReset();
+    sendEmployerRequestMock.mockReset();
   });
 
   it('creates an EmployerRequest with all form fields and returns 201 with the id', async () => {
@@ -123,6 +129,51 @@ describe('POST /api/employer/request', () => {
     expect(arg.data.positionName).toBeNull();
     expect(arg.data.referralSource).toBeNull();
     expect(arg.data.questions).toBeNull();
+  });
+
+  it('sends a notification email to the internal inbox with all form data', async () => {
+    requestCreateMock.mockResolvedValue({ id: REQUEST_ID, createdAt: new Date() });
+
+    const res = await request(makeApp()).post('/api/employer/request').send(VALID_FORM);
+
+    expect(res.status).toBe(201);
+    expect(sendEmployerRequestMock).toHaveBeenCalledTimes(1);
+    const [arg] = sendEmployerRequestMock.mock.calls[0] as unknown as [
+      {
+        to: string;
+        replyTo: string;
+        request: Record<string, unknown>;
+        jobDescription: unknown;
+      },
+    ];
+    expect(arg.to).toBe('contact@entractus.com');
+    // reply-to is the submitter's (lowercased) email.
+    expect(arg.replyTo).toBe('pat@bridge.example');
+    // Every submitted field is carried into the email payload.
+    expect(arg.request.firstName).toBe('Pat');
+    expect(arg.request.lastName).toBe('Lee');
+    expect(arg.request.company).toBe('Bridge Co.');
+    expect(arg.request.addressLine1).toBe('123 Main St');
+    expect(arg.request.city).toBe('Austin');
+    expect(arg.request.state).toBe('TX');
+    expect(arg.request.phone).toBe('+1-555-0100');
+    expect(arg.request.email).toBe('pat@bridge.example');
+    expect(arg.request.positionTitle).toBe('Project Manager');
+    expect(arg.request.positionType).toBe('Direct Hire');
+    expect(arg.request.hours).toBe('Full Time');
+    expect(arg.request.duties).toBe('Run multifamily builds.');
+    // No file uploaded -> no attachment.
+    expect(arg.jobDescription).toBeNull();
+  });
+
+  it('still returns 201 when the notification email fails', async () => {
+    requestCreateMock.mockResolvedValue({ id: REQUEST_ID, createdAt: new Date() });
+    sendEmployerRequestMock.mockRejectedValue(new Error('smtp down'));
+
+    const res = await request(makeApp()).post('/api/employer/request').send(VALID_FORM);
+
+    expect(res.status).toBe(201);
+    expect(res.body.requestId).toBe(REQUEST_ID);
   });
 
   it('lowercases the email before storage', async () => {

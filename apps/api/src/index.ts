@@ -63,6 +63,8 @@ const app = createApp({
     refreshTokenTtlSeconds,
     isProduction,
     uploadDir,
+    mailer,
+    notificationEmail: process.env.EMPLOYER_NOTIFY_TO ?? 'contact@entractus.com',
   },
 });
 

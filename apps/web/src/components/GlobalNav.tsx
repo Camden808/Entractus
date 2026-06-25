@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link, NavLink } from 'react-router';
 
-const CONTACT_EMAIL = 'hello@entractus.example';
+const CONTACT_EMAIL = 'contact@entractus.com';
 const CONTACT_PHONE_DISPLAY = '(555) 010-2024';
 const CONTACT_PHONE_TEL = '+15550102024';
 
