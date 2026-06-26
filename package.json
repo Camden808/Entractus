@@ -7,7 +7,7 @@
     "apps/*"
   ],
   "scripts": {
-    "start": "npm run db:up && concurrently -k -n api,web -c blue.bold,green.bold \"npm:dev:api\" \"npm:dev:web\"",
+    "start": "node scripts/start.mjs",
     "dev": "concurrently -k -n api,web -c blue.bold,green.bold \"npm:dev:api\" \"npm:dev:web\"",
     "dev:web": "npm --workspace apps/web run dev",
     "dev:api": "npm --workspace apps/api run dev",
