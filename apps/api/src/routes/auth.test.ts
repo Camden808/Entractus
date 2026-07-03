@@ -78,6 +78,54 @@ const FAKE_USER = {
   createdAt: new Date('2026-01-01T00:00:00Z'),
 };
 
+function makeProdApp() {
+  return createApp({
+    webOrigin: 'https://entractus-web.vercel.app',
+    auth: { ...TEST_AUTH, isProduction: true },
+    employer: {
+      jwtAccessSecret: TEST_AUTH.jwtAccessSecret,
+      jwtRefreshSecret: TEST_AUTH.jwtRefreshSecret,
+      accessTokenTtlSeconds: TEST_AUTH.accessTokenTtlSeconds,
+      refreshTokenTtlSeconds: TEST_AUTH.refreshTokenTtlSeconds,
+      isProduction: true,
+      uploadDir: './test-uploads',
+      mailer: { sendEmployerRequest: vi.fn() },
+      notificationEmail: 'contact@entractus.com',
+    },
+  });
+}
+
+describe('refresh cookie in production (cross-site)', () => {
+  beforeEach(() => {
+    findUniqueMock.mockReset();
+    createMock.mockReset();
+  });
+
+  it('sets SameSite=None; Secure so the browser sends it cross-site (Vercel <-> Railway)', async () => {
+    findUniqueMock.mockResolvedValue(null);
+    createMock.mockResolvedValue(FAKE_USER);
+
+    const res = await request(makeProdApp()).post('/api/auth/register').send({
+      email: 'jane@example.com',
+      password: 'correct-horse',
+      company: 'Acme Co.',
+      displayName: 'Jane Doe',
+    });
+
+    expect(res.status).toBe(201);
+    const setCookieHeader = res.headers['set-cookie'];
+    const setCookie = (
+      Array.isArray(setCookieHeader) ? setCookieHeader : setCookieHeader ? [setCookieHeader] : []
+    ) as string[];
+    const refreshCookie = setCookie.find((c) => c.startsWith('refresh_token='));
+    expect(refreshCookie).toBeDefined();
+    expect(refreshCookie).toMatch(/HttpOnly/i);
+    expect(refreshCookie).toMatch(/SameSite=None/i);
+    expect(refreshCookie).toMatch(/Secure/i);
+    expect(refreshCookie).toMatch(/Path=\/api\/auth/);
+  });
+});
+
 describe('POST /api/auth/register', () => {
   beforeEach(() => {
     findUniqueMock.mockReset();
