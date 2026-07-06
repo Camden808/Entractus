@@ -14,6 +14,21 @@ export interface IssueSessionOptions {
   isProduction: boolean;
 }
 
+// Cookie attributes shared by issue + clear (they must match for the browser
+// to overwrite/clear the cookie). In production the web app and API live on
+// different registrable domains (e.g. *.vercel.app <-> *.up.railway.app), so
+// the refresh cookie must be SameSite=None; Secure or the browser won't send
+// it on cross-site requests. Locally we use Lax (Secure can't be set over
+// http://localhost).
+function refreshCookieOptions(opts: IssueSessionOptions) {
+  return {
+    httpOnly: true,
+    secure: opts.isProduction,
+    sameSite: (opts.isProduction ? 'none' : 'lax') as 'none' | 'lax',
+    path: '/api/auth',
+  };
+}
+
 export function issueSession(
   res: Response,
   user: { id: string; role: UserRole },
@@ -31,10 +46,7 @@ export function issueSession(
   );
 
   res.cookie('refresh_token', refreshToken, {
-    httpOnly: true,
-    secure: opts.isProduction,
-    sameSite: 'lax',
-    path: '/api/auth',
+    ...refreshCookieOptions(opts),
     maxAge: opts.refreshTokenTtlSeconds * 1000,
   });
 
@@ -42,10 +54,5 @@ export function issueSession(
 }
 
 export function clearRefreshCookie(res: Response, opts: IssueSessionOptions): void {
-  res.clearCookie('refresh_token', {
-    httpOnly: true,
-    secure: opts.isProduction,
-    sameSite: 'lax',
-    path: '/api/auth',
-  });
+  res.clearCookie('refresh_token', refreshCookieOptions(opts));
 }
