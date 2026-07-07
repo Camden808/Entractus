@@ -76,6 +76,34 @@ describe('CORS', () => {
       .set('Access-Control-Request-Method', 'GET');
     expect(res.headers['access-control-allow-origin']).not.toBe('http://evil.example.com');
   });
+
+  it('allows any origin in a comma-separated WEB_ORIGIN list', async () => {
+    const origins = ['https://www.entractus.com', 'https://entractus.com'];
+    const app = createApp({
+      webOrigin: origins.join(','),
+      auth: {
+        ...SESSION_OPTS,
+        passwordResetTtlSeconds: 3600,
+        mailer: { sendPasswordReset: vi.fn() },
+        webBaseUrl: origins[0]!,
+      },
+      employer: {
+        ...SESSION_OPTS,
+        uploadDir: './test-uploads',
+        mailer: { sendEmployerRequest: vi.fn() },
+        notificationEmail: 'contact@entractus.com',
+      },
+    });
+
+    for (const origin of origins) {
+      const res = await request(app)
+        .options('/healthz')
+        .set('Origin', origin)
+        .set('Access-Control-Request-Method', 'GET');
+      expect(res.headers['access-control-allow-origin']).toBe(origin);
+      expect(res.headers['access-control-allow-credentials']).toBe('true');
+    }
+  });
 });
 
 describe('JSON body parsing', () => {
