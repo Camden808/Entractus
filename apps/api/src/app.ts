@@ -1,4 +1,4 @@
-import express, { type Express } from 'express';
+import express, { type Express, type Request, type Response, type NextFunction } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { createAuthRouter, type AuthRouterOptions } from './routes/auth.js';
@@ -27,6 +27,19 @@ export function createApp({ webOrigin, auth, employer }: AppOptions): Express {
   app.use('/api/users', createUsersRouter({ jwtAccessSecret: auth.jwtAccessSecret }));
   app.use('/api/employer', createEmployerRouter(employer));
   app.use('/api/jobs', createJobsRouter());
+
+  // Global error handler. Without this, an error thrown in a route (e.g. a
+  // failing Prisma query) becomes an unhandled promise rejection that crashes
+  // the whole process — the client just sees a 502. Here we log the full error
+  // server-side and return a clean JSON 500 with a short detail so failures are
+  // diagnosable instead of fatal. Routes must forward async errors via
+  // next(err) to reach this.
+  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    console.error('[api] unhandled error:', err);
+    if (res.headersSent) return;
+    const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    res.status(500).json({ error: 'internal_error', detail });
+  });
 
   return app;
 }

@@ -76,6 +76,17 @@ describe('GET /api/jobs', () => {
     countMock.mockResolvedValue(42);
   });
 
+  it('returns a 500 (not a crash) with a detail when the DB query fails', async () => {
+    countMock.mockRejectedValue(new Error('Cant reach database server'));
+    findManyMock.mockRejectedValue(new Error('Cant reach database server'));
+
+    const res = await request(makeApp()).get('/api/jobs');
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('internal_error');
+    expect(res.body.detail).toContain('Cant reach database server');
+  });
+
   it('returns items + total + pagination metadata; defaults page=1, pageSize=20', async () => {
     const res = await request(makeApp()).get('/api/jobs');
 
