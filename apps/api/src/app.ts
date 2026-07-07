@@ -15,7 +15,14 @@ export interface AppOptions {
 export function createApp({ webOrigin, auth, employer }: AppOptions): Express {
   const app = express();
 
-  app.use(cors({ origin: webOrigin, credentials: true }));
+  // WEB_ORIGIN may be a single origin or a comma-separated list (e.g. the
+  // custom domain's www + apex, plus the vercel.app URL). Passing an array to
+  // cors reflects the request Origin only when it is in this allowlist.
+  const allowedOrigins = webOrigin
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  app.use(cors({ origin: allowedOrigins, credentials: true }));
   app.use(express.json());
   app.use(cookieParser());
 
