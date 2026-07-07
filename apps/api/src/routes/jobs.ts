@@ -32,7 +32,7 @@ const PUBLIC_JOB_SELECT = {
 export function createJobsRouter(): Router {
   const router = Router();
 
-  router.get('/', async (req, res) => {
+  router.get('/', async (req, res, next) => {
     const parsed = listJobsQuerySchema.safeParse(req.query);
     if (!parsed.success) {
       return res.status(400).json({
@@ -50,20 +50,24 @@ export function createJobsRouter(): Router {
     if (type) where.type = type;
     if (company) where.company = company;
 
-    // Count + page query in parallel so the round-trip is the slower of
-    // the two, not the sum.
-    const [total, items] = await Promise.all([
-      prisma.jobPosting.count({ where }),
-      prisma.jobPosting.findMany({
-        where,
-        select: PUBLIC_JOB_SELECT,
-        orderBy: { postedDate: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-    ]);
+    try {
+      // Count + page query in parallel so the round-trip is the slower of
+      // the two, not the sum.
+      const [total, items] = await Promise.all([
+        prisma.jobPosting.count({ where }),
+        prisma.jobPosting.findMany({
+          where,
+          select: PUBLIC_JOB_SELECT,
+          orderBy: { postedDate: 'desc' },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        }),
+      ]);
 
-    return res.json({ items, total, page, pageSize });
+      return res.json({ items, total, page, pageSize });
+    } catch (err) {
+      return next(err);
+    }
   });
 
   return router;
